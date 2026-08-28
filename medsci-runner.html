@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Runner Game — Study Guide Trivia</title>
+<style>
+  :root{
+    --bg-0:#0d0308; --bg-1:#1c0710; --vessel-wall:#3a0d1c; --plasma:#5c1029;
+    --membrane:#ff5d8f; --nucleus:#ffd93f; --glucose:#ffd23f;
+    --hud-ink:#ffe9ef; --hud-dim:#c98a9c; --danger:#ff3b5c; --good:#3ee6b8;
+    --panel:#150409; --panel-line:rgba(255,93,143,.22);
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+    --display:'Georgia','Iowan Old Style',serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{ margin:0;height:100%; background:radial-gradient(ellipse at 50% 0%, var(--bg-1), var(--bg-0) 70%);
+    color:var(--hud-ink); font-family:var(--mono); display:flex;align-items:center;justify-content:center;
+    overflow:hidden; -webkit-tap-highlight-color:transparent; }
+  #wrap{ width:97vw; max-width:1700px; height:96vh; padding:12px; display:flex; flex-direction:column; }
+  h1{ font-family:var(--display); font-weight:400; font-style:italic; font-size:24px; margin:0 0 1px 2px; flex-shrink:0; }
+  .subtitle{ margin:0 0 8px 3px; color:var(--hud-dim); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; flex-shrink:0; }
+  #stageEl{ position:relative; width:100%; flex:1; min-height:0; aspect-ratio:2/1; max-height:100%; margin:0 auto;
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,93,143,.18), 0 30px 60px -20px rgba(0,0,0,.7); }
+  #stageEl.bomb-flash::after{ content:''; position:absolute; inset:0; pointer-events:none; z-index:40;
+    border:10px solid var(--danger); box-shadow:inset 0 0 60px 10px rgba(255,59,92,.5);
+    animation:bombFlash .35s ease-out; }
+  @keyframes bombFlash{ 0%{ opacity:1; } 100%{ opacity:0; } }
+  canvas{ display:block; width:100%; height:100%; background:var(--bg-1); }
+
+  #hud{ position:absolute;top:0;left:0;right:0; display:flex;justify-content:space-between;align-items:flex-start;
+    padding:14px 16px; pointer-events:none; z-index:5; }
+  .hud-block{ background:rgba(13,3,8,.55); backdrop-filter:blur(4px); border:1px solid rgba(255,93,143,.25);
+    border-radius:10px; padding:8px 12px; pointer-events:auto; }
+  .hud-label{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--hud-dim); margin-bottom:2px; }
+  .hud-value{ font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .hud-stage-line{ font-size:11px; color:var(--hud-ink); margin-top:4px; font-weight:700; }
+  .topic-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; max-width:230px; }
+  .topic-chip{ font-size:10px; padding:3px 8px; border-radius:12px; border:1px solid; white-space:nowrap; }
+  #hudRight{ display:flex;flex-direction:column;align-items:flex-end;gap:6px; pointer-events:auto; }
+  .icon-btn{ background:rgba(13,3,8,.55); border:1px solid rgba(255,93,143,.3); color:var(--hud-ink);
+    border-radius:8px; width:34px;height:34px; font-size:15px; cursor:pointer; }
+
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:safe center;
+    background:rgba(8,2,5,.92); text-align:center; padding:22px; z-index:10; overflow-y:auto; }
+  .screen.active{ display:flex; }
+  .screen h2{ font-family:var(--display); font-style:italic; font-weight:400; font-size:30px; margin:0 0 6px; }
+  .screen p.desc{ color:var(--hud-dim); max-width:480px; line-height:1.55; font-size:13px; margin:0 0 16px; text-align:center; }
+
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  button.primary{ font-family:var(--mono); background:linear-gradient(135deg,var(--membrane),#c22a5c);
+    color:#1a0508; font-weight:700; border:none; padding:11px 26px; border-radius:30px; font-size:14px;
+    cursor:pointer; box-shadow:0 8px 20px -6px rgba(255,93,143,.6); }
+  button.secondary{ font-family:var(--mono); background:transparent; color:var(--hud-ink);
+    border:1px solid rgba(255,255,255,.25); padding:10px 22px; border-radius:30px; font-size:13px; cursor:pointer; }
+  .kbd{ color:var(--hud-ink); background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2);
+    border-radius:5px; padding:1px 6px; font-size:12px; }
+
+  .cancer-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; width:100%; max-width:460px; margin-bottom:6px; }
+  .pick-card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:12px; padding:16px 10px;
+    color:var(--hud-ink); font-family:var(--mono); cursor:pointer; text-align:left; }
+  .pick-card:hover{ border-color:var(--membrane); }
+  .pick-card .cc-icon{ font-size:26px; display:block; margin-bottom:6px; }
+  .pick-card .cc-name{ font-weight:700; font-size:14px; display:block; margin-bottom:4px; }
+  .pick-card .cc-blurb{ font-size:11px; color:var(--hud-dim); line-height:1.4; }
+
+  .topic-tabs{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:14px; }
+  .checks{ display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center; }
+  .checks label{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--hud-ink); cursor:pointer; }
+  select{ font-family:var(--mono); font-size:13px; background:var(--bg-1); color:var(--hud-ink);
+    border:1px solid var(--panel-line); border-radius:8px; padding:8px 10px; width:100%; }
+  select:focus{ outline:none; border-color:var(--membrane); }
+  .topic-tab{ font-family:var(--mono); font-size:12px; padding:7px 14px; border-radius:18px; border:1px solid;
+    background:transparent; cursor:pointer; }
+  /* Theme tabs are the top-level switch (Cancer vs Biochemistry) — bigger,
+     bolder, squarer corners — visually a "higher level" control than the
+     topic chips below them, which are the small rounded pills. */
+  .theme-tab{ font-family:var(--mono); font-weight:700; font-size:14px; padding:9px 20px; border-radius:8px;
+    border:1px solid; background:transparent; cursor:pointer; }
+  .tabs-label{ font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--hud-dim);
+    text-align:left; width:100%; max-width:680px; margin:2px 0 3px; }
+  .guide-search{ width:100%; max-width:680px; font-family:var(--mono); font-size:13px; background:var(--bg-1);
+    color:var(--hud-ink); border:1px solid var(--panel-line); border-radius:8px; padding:8px 11px; margin:8px 0 10px; }
+  .guide-search:focus{ outline:none; border-color:var(--membrane); }
+  .tag-chip-btn{ font-size:11px; padding:3px 9px; border-radius:20px; border:1px solid var(--panel-line);
+    color:var(--hud-dim); background:transparent; cursor:pointer; font-family:var(--mono); }
+  .tag-chip-btn:hover{ border-color:var(--membrane); color:var(--hud-ink); }
+  .item-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; width:100%;
+    max-width:680px; margin:0 0 6px; max-height:340px; overflow-y:auto; padding-right:2px; }
+  .item-card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:10px;
+    cursor:pointer; text-align:left; color:var(--hud-ink); font-family:var(--mono); }
+  .item-card:hover{ border-color:currentColor; }
+  .item-card .ic-name{ font-size:12.5px; font-weight:700; margin-bottom:2px; }
+  .item-card .ic-hint{ font-size:9.5px; color:var(--hud-dim); }
+
+  #infoModal, #manualModal, #mcqModal, #scenarioOverlay, #summaryModal{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:safe center;
+    background:rgba(4,1,3,.9); z-index:20; padding:18px; }
+  #infoModal.active, #manualModal.active, #mcqModal.active, #scenarioOverlay.active, #summaryModal.active{ display:flex; }
+  .panel-card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; max-width:520px;
+    width:100%; max-height:92%; overflow-y:auto; padding:22px; text-align:left; position:relative; }
+  .panel-close{ position:absolute; top:12px; right:12px; background:none; border:none; color:var(--hud-dim);
+    font-size:18px; cursor:pointer; }
+  .p-cat{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--hud-dim); margin-bottom:2px; }
+  .p-name{ font-family:var(--display); font-style:italic; font-size:23px; margin:0 0 10px; }
+  .p-desc{ font-size:13px; line-height:1.55; margin:0 0 12px; color:var(--hud-ink); }
+  .p-sub{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--hud-dim); margin:14px 0 6px; }
+  .p-facts{ margin:0; padding-left:18px; font-size:12.5px; line-height:1.6; color:var(--hud-ink); }
+  .p-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .p-chip{ font-size:11px; padding:3px 9px; border-radius:20px; border:1px solid var(--panel-line); color:var(--hud-dim); }
+  .img-strip{ display:flex; gap:8px; overflow-x:auto; margin-bottom:10px; }
+  .img-box{ flex-shrink:0; width:180px; }
+  .img-box img{ width:180px; height:130px; object-fit:cover; border-radius:8px; border:1px solid var(--panel-line);
+    background:var(--bg-1); display:block; cursor:zoom-in; transition:opacity .15s; }
+  .img-box img:hover{ opacity:.85; }
+  #mpCountdownOverlay{ position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(4,1,3,.94); z-index:25; }
+  #mpCountdownOverlay.active{ display:flex; }
+  #mpCountdownText{ font-family:var(--display); font-style:italic; font-size:140px; color:var(--membrane);
+    text-shadow:0 0 40px rgba(255,93,143,.6); }
+  #lightboxModal{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(4,1,3,.96); z-index:30; padding:30px; }
+  #lightboxModal.active{ display:flex; }
+  #lightboxModal img{ max-width:90%; max-height:82%; object-fit:contain; border-radius:8px; cursor:zoom-out;
+    box-shadow:0 20px 60px -10px rgba(0,0,0,.8); }
+  #lightboxCap{ color:var(--hud-dim); font-size:12px; margin-top:12px; text-align:center; max-width:600px; }
+  .img-box .img-cap{ font-size:10px; color:var(--hud-dim); margin-top:3px; line-height:1.3; }
+  .img-placeholder{ width:180px; height:130px; border:1px dashed var(--panel-line); border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--hud-dim); text-align:center; padding:8px; }
+
+  /* MCQ */
+  .mcq-cat{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; }
+  .mcq-prompt{ font-size:16px; line-height:1.4; margin:0 0 16px; color:var(--hud-ink); }
+  .mcq-option{ display:block; width:100%; text-align:left; font-family:var(--mono); font-size:13px;
+    background:var(--bg-1); border:1px solid var(--panel-line); color:var(--hud-ink); border-radius:8px;
+    padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+  .mcq-option:hover{ border-color:var(--membrane); }
+  .mcq-option .opt-key{ color:var(--hud-dim); margin-right:8px; }
+  .mcq-option.correct{ border-color:var(--good); background:rgba(62,230,184,.14); }
+  .mcq-option.wrong{ border-color:var(--danger); background:rgba(255,59,92,.14); }
+  .mcq-option.disabled{ cursor:default; }
+  .mcq-verdict{ font-family:var(--display); font-style:italic; font-size:19px; margin:4px 0 8px; }
+  .verdict-good{ color:var(--good); } .verdict-bad{ color:var(--danger); }
+  .mcq-explain{ font-size:12.5px; line-height:1.55; color:var(--hud-ink); background:var(--bg-1);
+    border:1px solid var(--panel-line); border-radius:8px; padding:10px; margin-bottom:14px; }
+
+  /* Scenario */
+  .scenario-icon{ font-size:40px; margin-bottom:10px; }
+  .scenario-stage{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--hud-dim); margin-bottom:6px; }
+  .scenario-text{ font-size:14px; line-height:1.7; max-width:520px; color:var(--hud-ink); margin:0 0 20px;
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:12px; padding:18px 20px; text-align:left; }
+  .req-list{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:18px; }
+  .req-chip{ font-size:11px; padding:5px 12px; border-radius:16px; border:1px solid var(--panel-line); color:var(--hud-ink); }
+
+  /* Summary */
+  .sum-toggle{ display:flex; gap:8px; margin-bottom:14px; }
+  .sum-tab{ font-family:var(--mono); font-size:12px; padding:6px 14px; border-radius:16px; border:1px solid var(--panel-line);
+    background:transparent; color:var(--hud-dim); cursor:pointer; }
+  .sum-tab.active{ background:var(--membrane); color:#1a0508; border-color:var(--membrane); font-weight:700; }
+  .sum-row{ background:var(--bg-1); border:1px solid var(--panel-line); border-radius:8px; padding:9px 11px; margin-bottom:6px; font-size:12px; }
+  .roster-row{ background:var(--bg-1); border:1px solid var(--panel-line); border-radius:8px; padding:8px 12px; margin-bottom:6px;
+    font-size:12.5px; display:flex; justify-content:space-between; }
+  .roster-row.me{ border-color:var(--membrane); color:var(--membrane); }
+  .lb-row{ background:var(--bg-1); border:1px solid var(--panel-line); border-radius:8px; padding:8px 12px; margin-bottom:6px;
+    font-size:12.5px; display:flex; justify-content:space-between; gap:10px; }
+  .lb-row.me{ border-color:var(--membrane); }
+  .lb-row .lb-rank{ color:var(--hud-dim); width:24px; flex-shrink:0; }
+  #mpLeaderboardPanel{ max-height:170px; overflow-y:auto; }
+  #mpEliminationToast{ position:absolute; top:60px; left:50%; transform:translateX(-50%); background:var(--danger);
+    color:#fff; font-weight:700; font-size:13px; padding:8px 18px; border-radius:20px; opacity:0; pointer-events:none;
+    transition:opacity .3s, top .3s; z-index:35; white-space:nowrap; }
+  #mpEliminationToast.show{ opacity:1; top:75px; }
+  .sum-row .sr-top{ display:flex; justify-content:space-between; gap:8px; margin-bottom:3px; }
+  .sum-row .sr-verdict.verdict-good{ color:var(--good); } .sum-row .sr-verdict.verdict-bad{ color:var(--danger); }
+  .sum-row .sr-q{ color:var(--hud-ink); margin-bottom:3px; }
+  .sum-row .sr-ans{ color:var(--hud-dim); font-size:11px; }
+  .sum-row .sr-link{ color:var(--membrane); cursor:pointer; text-decoration:underline; font-size:11px; }
+  .sum-group-title{ font-family:var(--display); font-style:italic; font-size:15px; margin:14px 0 6px; }
+
+  #controls-mobile{ display:none; justify-content:space-between; margin-top:8px; gap:10px; flex-shrink:0; }
+  #controls-mobile button{ flex:1; font-family:var(--mono); background:rgba(255,93,143,.12);
+    border:1px solid rgba(255,93,143,.35); color:var(--hud-ink); padding:14px; border-radius:10px; font-size:18px; }
+  footer{ margin-top:6px; font-size:10.5px; color:var(--hud-dim); text-align:center; flex-shrink:0; }
+  @media (max-width:640px){ #controls-mobile{display:flex;} .cancer-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>Runner Game</h1>
+  <p class="subtitle">study-guide trivia · lane-hop through the vessel · answer to progress the stage</p>
+
+  <div id="stageEl">
+    <canvas id="game" width="960" height="480"></canvas>
+
+    <div id="hud">
+      <div class="hud-block">
+        <div class="hud-label" id="lifeLabel">Glucose</div>
+        <div class="hud-value" id="glucoseVal">50</div>
+        <div class="hud-stage-line" id="stageLine"></div>
+        <div class="topic-chips" id="topicChips"></div>
+      </div>
+      <div class="hud-block" id="mpOpponentPanel" style="display:none;max-width:230px;">
+        <div class="hud-label">Racers</div>
+        <div id="mpLeaderboardPanel"></div>
+      </div>
+      <div id="hudRight">
+        <button class="icon-btn" id="pauseBtn" title="Pause (P)">⏸</button>
+        <button class="icon-btn" id="guideBtn" title="Study guide">📚</button>
+      </div>
+    </div>
+    <div id="mpEliminationToast"></div>
+
+    <!-- LANDING -->
+    <div class="screen active" id="landingScreen">
+      <div id="cancerPickView">
+        <h2>Runner Game</h2>
+        <p class="desc">A study-guide trivia runner. Hit a topic block, answer an MCQ, and push through all the stages without running out of life — or use Study &amp; Practice mode below for untimed, filterable practice.</p>
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="secondary" id="manualBtn">📖 How to play</button>
+          <button class="secondary" id="studyGuideBtnMenu">📚 Study guide</button>
+          <button class="secondary" id="courseListBtnMenu">🎓 Browse by course</button>
+        </div>
+        <div class="cancer-grid" id="cancerGrid"></div>
+        <button class="pick-card" id="practiceModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
+          <span class="cc-icon">📝</span><span class="cc-name">Study &amp; Practice</span>
+          <span class="cc-blurb">Pick a theme, topic, and course — then browse the guide or run an untimed practice quiz. Works for any theme, not just Cancer.</span>
+        </button>
+        <button class="pick-card" id="mpModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
+          <span class="cc-icon">🆚</span><span class="cc-name">Group Race</span>
+          <span class="cc-blurb">Race friends on separate devices — everyone plays the same stages, ranked by score at the end.</span>
+        </button>
+        <button class="pick-card" id="customModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
+          <span class="cc-icon">🎯</span><span class="cc-name">Custom run</span>
+          <span class="cc-blurb">Build your own run — pick any mix of Theme, Topic, and Course. Full Runner rules (bombs, life, stages), just with your own question pool.</span>
+        </button>
+      </div>
+      <div id="briefView" style="display:none;">
+        <h2 id="briefTitle">—</h2>
+        <p class="desc" id="briefBlurb"></p>
+        <div class="btn-row">
+          <button class="secondary" id="backToPickBtn">← Back</button>
+          <button class="primary" id="startBtn">Start</button>
+        </div>
+      </div>
+      <div id="practiceSetupView" style="display:none;">
+        <h2>Study &amp; Practice</h2>
+        <p class="desc">Filter by theme, topic, and course — then browse the study guide or start an untimed practice quiz. No glucose, no stages, just questions.</p>
+        <div class="p-sub" style="margin-top:0;">Theme</div>
+        <div class="cancer-grid" id="practiceThemeGrid" style="max-width:460px;margin-bottom:14px;"></div>
+        <div class="p-sub">Topics <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave all unchecked for every topic)</span></div>
+        <div class="checks" id="practiceTopicChecks" style="margin-bottom:16px;"></div>
+        <div class="p-sub">Course</div>
+        <select id="practiceCourseSelect" style="max-width:420px;margin-bottom:18px;"></select>
+        <div class="btn-row">
+          <button class="secondary" id="practiceBackBtn">← Back</button>
+          <button class="secondary" id="practiceBrowseBtn">📚 Browse guide</button>
+          <button class="primary" id="practiceStartBtn">📝 Start practice quiz</button>
+        </div>
+      </div>
+      <div id="customSetupView" style="display:none;">
+        <h2>Custom run</h2>
+        <p class="desc">Pick any mix of Theme, Topic, and Course — leave a whole group unchecked to include everything in it. Since a mixed run doesn't have one storyline, stages are generic and life just shows as "Life" instead of a themed resource.</p>
+        <div class="p-sub" style="margin-top:0;">Theme <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every theme)</span></div>
+        <div class="checks" id="customThemeChecks" style="margin-bottom:16px;"></div>
+        <div class="p-sub">Topic <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every topic)</span></div>
+        <div class="checks" id="customTopicChecks" style="margin-bottom:16px;"></div>
+        <div class="p-sub">Course <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every course)</span></div>
+        <div class="checks" id="customCourseChecks" style="margin-bottom:18px;"></div>
+        <p class="desc" id="customMatchCount" style="color:var(--hud-dim);"></p>
+        <div class="btn-row">
+          <button class="secondary" id="customBackBtn">← Back</button>
+          <button class="primary" id="customStartBtn">🎯 Start custom run</button>
+        </div>
+      </div>
+      <div id="mpSetupView" style="display:none;">
+        <h2>Group Race</h2>
+        <p class="desc">Race friends through the same stages — same rules as solo Runner mode, ranked by score at the end.</p>
+        <label class="field" style="max-width:300px;margin:0 auto 16px;">
+          <span class="fl-label">Your name</span>
+          <input type="text" id="mpNameInput" placeholder="e.g. Eason" style="width:100%;font-family:var(--mono);font-size:13px;background:var(--bg-1);color:var(--hud-ink);border:1px solid var(--panel-line);border-radius:8px;padding:8px 10px;">
+        </label>
+        <div class="p-sub" style="margin-top:0;">Theme (host's choice — only matters when hosting)</div>
+        <div class="cancer-grid" id="mpThemeGrid" style="max-width:400px;margin:0 auto 16px;"></div>
+        <div class="btn-row">
+          <button class="secondary" id="mpBackBtn">← Back</button>
+          <button class="primary" id="mpHostBtn">Host a race</button>
+          <button class="primary" id="mpJoinBtn">Join with a code</button>
+        </div>
+      </div>
+      <div id="mpJoinEntryView" style="display:none;">
+        <h2>Join a race</h2>
+        <p class="desc">Ask your opponent for their 5-character room code.</p>
+        <input type="text" id="mpCodeInput" maxlength="5" placeholder="ABCDE" style="max-width:200px;display:block;margin:0 auto 16px;text-align:center;text-transform:uppercase;letter-spacing:.2em;font-size:22px;font-family:var(--mono);background:var(--bg-1);color:var(--hud-ink);border:1px solid var(--panel-line);border-radius:8px;padding:10px;">
+        <div class="btn-row">
+          <button class="secondary" id="mpJoinBackBtn">← Back</button>
+          <button class="primary" id="mpJoinConfirmBtn">Join</button>
+        </div>
+        <p class="desc" id="mpJoinError" style="color:var(--danger);display:none;margin-top:10px;"></p>
+      </div>
+      <div id="mpWaitView" style="display:none;">
+        <h2 id="mpWaitTitle">Waiting for racers…</h2>
+        <div class="panel-card" style="max-width:280px;margin:0 auto 18px;text-align:center;padding:20px;">
+          <div style="font-size:11px;color:var(--hud-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Room code</div>
+          <div id="mpRoomCodeDisplay" style="font-size:36px;font-weight:700;letter-spacing:.15em;color:var(--membrane);">—</div>
+        </div>
+        <p class="desc" id="mpWaitStatus">Share this code with your friends.</p>
+        <div class="p-sub" style="margin-top:0;">Racers so far</div>
+        <div id="mpRosterList" style="max-width:320px;margin:0 auto 18px;"></div>
+        <div class="btn-row">
+          <button class="secondary" id="mpCancelBtn">Cancel</button>
+          <button class="primary" id="mpStartRaceBtn" style="display:none;">Start race</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MP COUNTDOWN -->
+    <div id="mpCountdownOverlay">
+      <div id="mpCountdownText">3</div>
+    </div>
+
+    <!-- PAUSE -->
+    <div class="screen" id="pauseScreen">
+      <h2>Paused</h2>
+      <p class="desc" id="pauseStatus"></p>
+      <div class="btn-row">
+        <button class="primary" id="resumeBtn">Resume (P)</button>
+        <button class="secondary" id="restartBtn">Restart</button>
+        <button class="secondary" id="studyGuideFromPauseBtn">📚 Study guide</button>
+        <button class="secondary" id="manualFromPauseBtn">📖 How to play</button>
+        <button class="secondary" id="quitFromPauseBtn">🏠 Quit to menu</button>
+        <button class="secondary" id="endGameFromPauseBtn" style="border-color:var(--danger);color:var(--danger);">🏁 End game &amp; view summary</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div class="screen" id="overScreen">
+      <h2 id="overTitle">—</h2>
+      <p class="desc" id="overText"></p>
+      <div class="btn-row">
+        <button class="primary" id="viewSummaryBtn">View summary</button>
+        <button class="secondary" id="againBtn">Play again</button>
+        <button class="secondary" id="quitFromOverBtn">🏠 Quit to menu</button>
+      </div>
+    </div>
+
+    <!-- SCENARIO (stage transition) -->
+    <div id="scenarioOverlay">
+      <div class="panel-card" style="max-width:560px;text-align:center;">
+        <div class="scenario-icon" id="scenarioIcon">🩸</div>
+        <div class="scenario-stage" id="scenarioStageLabel">STAGE I</div>
+        <div class="scenario-text" id="scenarioText"></div>
+        <div class="p-sub" style="margin-top:0;">To clear this stage</div>
+        <div class="req-list" id="scenarioReqs"></div>
+        <button class="primary" id="scenarioContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <!-- MCQ MODAL -->
+    <div id="mcqModal">
+      <div class="panel-card" style="max-width:520px;">
+        <div id="mcqPracticeBar" style="display:none;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--hud-dim);">
+          <span id="mcqPracticeProgress"></span>
+          <span class="sr-link" id="mcqEndPracticeBtn">End practice</span>
+        </div>
+        <div class="mcq-cat" id="mcqCat" style="color:var(--hud-dim);">TOPIC</div>
+        <p class="mcq-prompt" id="mcqPrompt">—</p>
+        <div id="mcqOptions"></div>
+        <div id="mcqFeedback" style="display:none;">
+          <div class="mcq-verdict" id="mcqVerdict">—</div>
+          <div class="mcq-explain" id="mcqExplain"></div>
+          <div class="btn-row">
+            <button class="primary" id="mcqContinueBtn">Continue (Enter)</button>
+            <button class="secondary" id="mcqViewGuideBtn">📚 View in study guide</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div id="summaryModal">
+      <div class="panel-card" style="max-width:640px;">
+        <button class="panel-close" id="summaryClose">✕</button>
+        <h3 class="p-name" style="margin-bottom:4px;">Session summary</h3>
+        <p class="p-desc" id="summaryStats" style="margin-top:0;"></p>
+        <div class="sum-toggle">
+          <button class="sum-tab active" id="sumTabOrder">In order answered</button>
+          <button class="sum-tab" id="sumTabTopic">By topic</button>
+        </div>
+        <div id="summaryBody" style="max-height:52vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- STUDY GUIDE -->
+    <!-- IMAGE LIGHTBOX -->
+    <div id="lightboxModal">
+      <button class="panel-close" id="lightboxClose" style="top:14px;right:18px;font-size:22px;">✕</button>
+      <img id="lightboxImg" src="" alt="">
+      <div id="lightboxCap"></div>
+    </div>
+
+    <div id="infoModal">
+      <div class="panel-card" style="max-width:760px;">
+        <button class="panel-close" id="guideClose">✕</button>
+        <h3 class="p-name" style="margin-bottom:4px;" id="guideTitle">Study guide</h3>
+        <p class="p-desc" id="guideBlurb" style="margin-top:0;"></p>
+        <button class="secondary" id="courseListBtnGuide" style="margin-bottom:10px;">🎓 Browse by course</button>
+        <div id="guideTabsWrap">
+          <div class="tabs-label" id="guideThemeLabel" style="display:none;">Theme</div>
+          <div class="topic-tabs" id="guideThemeTabs" style="margin-bottom:8px;"></div>
+          <div class="tabs-label">Topic</div>
+          <div class="topic-tabs" id="guideTopicTabs"></div>
+        </div>
+        <div id="guideCourseHeader" style="display:none;margin-bottom:10px;">
+          <button class="secondary" id="courseBackBtn" style="margin-bottom:8px;">← Back to topics</button>
+          <div class="p-sub" style="margin-top:0;" id="courseHeaderText">Course</div>
+        </div>
+        <div id="guideListHeader" style="display:none;margin-bottom:6px;">
+          <button class="secondary" id="guideListBackBtn">← Back to guide</button>
+        </div>
+        <input type="text" class="guide-search" id="guideSearchInput" placeholder="🔍 Search this list by name, description, or #tag…">
+        <div class="item-grid" id="guideItemGrid"></div>
+        <div id="itemDetailWrap" style="display:none;">
+          <button class="secondary" id="itemBackBtn" style="margin-bottom:12px;">← All topics</button>
+          <div class="img-strip" id="itemImages"></div>
+          <div class="p-cat" id="itemCat">—</div>
+          <h3 class="p-name" id="itemName">—</h3>
+          <div class="p-desc" id="itemCourse" style="margin-top:-6px;color:var(--hud-dim);font-size:11.5px;"></div>
+          <div class="p-chips" id="itemHashtags" style="margin-bottom:10px;"></div>
+          <p class="p-desc" id="itemDesc"></p>
+          <div id="itemMechWrap"><div class="p-sub" style="margin-top:0;">Mechanism</div><p class="p-desc" id="itemMech"></p></div>
+          <div id="itemFactsWrap"><div class="p-sub">Fun facts</div><ul class="p-facts" id="itemFacts"></ul></div>
+          <div id="itemRefsWrap" style="display:none;"><div class="p-sub">References</div><ul class="p-facts" id="itemRefs"></ul></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL -->
+    <div id="manualModal">
+      <div class="panel-card" style="max-width:520px;">
+        <button class="panel-close" id="manualClose">✕</button>
+        <h3 class="p-name" style="margin-bottom:14px;">How to play</h3>
+        <div class="p-sub" style="margin-top:0;">Objective</div>
+        <p class="p-desc">You're running through the bloodstream. Steer into topic blocks (<span class="kbd">↑</span>/<span class="kbd">↓</span> or <span class="kbd">W</span>/<span class="kbd">S</span>, swipe on mobile) to trigger a multiple-choice question from that topic. Answer enough questions correctly in each required topic to clear the stage — there are 4 clinical stages total.</p>
+        <div class="p-sub">Life</div>
+        <p class="p-desc" id="manualGlucoseText"></p>
+        <div class="p-sub">Controls</div>
+        <p class="p-desc"><span class="kbd">↑</span>/<span class="kbd">↓</span> or <span class="kbd">W</span>/<span class="kbd">S</span> — switch lanes<br>
+        <span class="kbd">1</span>–<span class="kbd">6</span> — pick an MCQ option, <span class="kbd">Enter</span> — continue after answering<br>
+        <span class="kbd">P</span> / <span class="kbd">Esc</span> — pause</p>
+        <div class="p-sub">Study guide</div>
+        <p class="p-desc">Every topic and item you'll be quizzed on is browsable any time from the 📚 button — before, during (it pauses first), or after a run. If there's more than one theme, tabs appear to switch between them. Each question you answer also links back to its study guide entry in your session summary.</p>
+        <div class="p-sub">Study &amp; Practice mode</div>
+        <p class="p-desc">A separate, untimed way to study: pick a theme, optionally narrow to specific topics and a course, then either browse the filtered guide or run a practice quiz — no glucose, no stages, just questions one after another with immediate feedback. End it anytime to see your summary.</p>
+        <div class="p-sub">Group Race</div>
+        <p class="p-desc">Race friends on separate devices — one hosts and shares a 5-character room code, everyone else joins with it. Same rules as solo Runner mode, but everyone is ranked by score once all racers are done, and you can see a live leaderboard in the HUD while you play. Elimination pops up a notice for everyone still racing.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="controls-mobile">
+    <button id="upBtn">▲ lane</button>
+    <button id="downBtn">▼ lane</button>
+  </div>
+
+</div>
+
+<!-- Game content (topics, items, questions, stages, courses, tunable
+     numbers) lives in game-data.js, loaded as a plain script (not a module)
+     so this still works when the file is just double-clicked, no server
+     needed. Edit game-data.js to add/change content — this file only reads
+     it via window.RUNNER_DATA below. -->
+<script src="game-data.js"></script>
+<script type="module">
+/* ======================================================================
+   FIREBASE — used only for Group Race mode (real-time sync between
+   devices). If you fork this file for a different Firebase project,
+   swap this config for your own (Firebase console → Project settings →
+   your web app). The apiKey here is not a secret — it just identifies
+   the project; actual access is controlled by the database's Rules.
+
+   IMPORTANT: this is loaded with a dynamic import() inside a try/catch,
+   not a static top-level `import`. A static import is all-or-nothing —
+   if the Firebase SDK fails to load for ANY reason (no internet, a
+   school/office firewall blocking gstatic.com, a flaky connection), the
+   browser aborts the ENTIRE module before a single line of it runs —
+   including all the button wiring for solo Runner, Study & Practice, and
+   Custom run, none of which need Firebase or the internet at all. That
+   silent, whole-page failure ("nothing is clickable, no error shown") is
+   exactly what a static import risks. Loading it this way instead means
+   a Firebase failure only disables Group Race — everything else plays
+   fully offline, and firebaseReady below tells the rest of the file
+   whether Group Race is actually usable.
+   ====================================================================== */
+  let initializeApp, getDatabase, ref, set, get, fbUpdate, onValue, off, runTransaction, onDisconnect, remove;
+  let fbApp, fbdb;
+  let firebaseReady = false;
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBO3Ztpzg2tCTLapxdxmy-vBh0uOaEHnus",
+    authDomain: "runner-9b11b.firebaseapp.com",
+    databaseURL: "https://runner-9b11b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "runner-9b11b",
+    storageBucket: "runner-9b11b.firebasestorage.app",
+    messagingSenderId: "1043816875668",
+    appId: "1:1043816875668:web:53bd52882fd7976da31681"
+  };
+  const firebaseInitPromise = (async function initFirebase(){
+    try {
+      const appMod = await import('https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js');
+      const dbMod = await import('https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js');
+      ({ initializeApp } = appMod);
+      ({ getDatabase, ref, set, get, update: fbUpdate, onValue, off, runTransaction, onDisconnect, remove } = dbMod);
+      fbApp = initializeApp(firebaseConfig);
+      fbdb = getDatabase(fbApp);
+      firebaseReady = true;
+    } catch(err){
+      console.warn('[Runner Game] Group Race is unavailable — could not reach the Firebase SDK (no internet, or gstatic.com is blocked on this network). Solo Runner, Study & Practice, and Custom run are unaffected.', err);
+      firebaseReady = false;
+    }
+  })();
+
+/* ======================================================================
+   CONTENT — everything data-shaped (topics, courses, themes, questions,
+   stages, tunable numbers) lives in game-data.js and is loaded above as
+   window.RUNNER_DATA. Pull it all into local consts here so the rest of
+   this file reads exactly as it always did.
+   ====================================================================== */
+  const {
+    COURSES, TOPICS, GAME_CONFIG, LIFE_CONFIG, THEMES,
+    STAGES, COMPLETE_SCENARIO, RUNNABLE_THEMES,
+  } = window.RUNNER_DATA;
+
+  // Items/questions store a compact course:'MEDS3002', class:'L14' pair
+  // instead of writing the whole string out by hand. This builds the
+  // display string ("MEDS3002 · L14 · Cancer Hallmarks") once at load time
+  // and writes it back onto each item/question as `.relatedCourse`, so
+  // every place below that reads `.relatedCourse` (item modal, course
+  // browser, practice-mode course filter) keeps working unchanged. A
+  // question only carries its own course/class when it genuinely differs
+  // from its item's — otherwise it inherits the item's for this purpose.
+  function courseDisplayString(course, cls){
+    const c = COURSES[course];
+    if(!c) return '';
+    const k = c.classes[cls];
+    return k ? `${c.code} ${cls} ${k.label}` : c.code;
+  }
+  (function hydrateCourseStrings(){
+    Object.values(THEMES).forEach(theme=>{
+      Object.values(theme.topics).forEach(topic=>{
+        Object.values(topic.items).forEach(item=>{
+          if(item.course && item.class) item.relatedCourse = courseDisplayString(item.course, item.class);
+          (item.questions||[]).forEach(q=>{
+            const course = q.course || item.course, cls = q.class || item.class;
+            if(course && cls) q.relatedCourse = courseDisplayString(course, cls);
+          });
+        });
+      });
+    });
+  })();
+
+  /* ======================================================================
+     TAG INDEX — Theme / Topic / Course as three independent, flat tags on
+     every item and question, for anything that needs to query "give me
+     everything matching this filter" (currently: Custom run and Study &
+     Practice). The stored shape (Theme -> Topic -> Item -> its own
+     `questions` array) is left exactly as-is — this just walks it once at
+     load time and builds flat, taggable lists alongside it.
+     ====================================================================== */
+  const ALL_ITEMS = []; // { itemId, theme, topic, course, class, ...item fields }
+  Object.entries(THEMES).forEach(([themeId, theme])=>{
+    Object.entries(theme.topics).forEach(([topicId, topic])=>{
+      Object.entries(topic.items).forEach(([itemId, item])=>{
+        ALL_ITEMS.push({ itemId, theme:themeId, topic:topicId, ...item });
+      });
+    });
+  });
+
+  // QUESTIONS_BY_THEME_TOPIC mirrors the old QUESTION_BANK[theme][topic]
+  // shape (a flat array per theme+topic, each question carrying its
+  // itemId and resolved course/class) — built from the items' own nested
+  // `questions` arrays instead of a separate parallel tree. Runner mode's
+  // question-serving, Study & Practice's filtering, and Custom run's flat
+  // pool all read from this, so none of them need to know or care that
+  // questions actually live nested under their item.
+  const QUESTIONS_BY_THEME_TOPIC = {};
+  const ALL_QUESTIONS = []; // { theme, topic, itemId, course, class, ...question fields }
+  Object.entries(THEMES).forEach(([themeId, theme])=>{
+    QUESTIONS_BY_THEME_TOPIC[themeId] = {};
+    Object.entries(theme.topics).forEach(([topicId, topic])=>{
+      const arr = [];
+      Object.entries(topic.items).forEach(([itemId, item])=>{
+        (item.questions||[]).forEach(q=>{
+          const resolved = { ...q, itemId, course: q.course || item.course || '', class: q.class || item.class || '' };
+          arr.push(resolved);
+          ALL_QUESTIONS.push({ ...resolved, theme:themeId, topic:topicId });
+        });
+      });
+      QUESTIONS_BY_THEME_TOPIC[themeId][topicId] = arr;
+    });
+  });
+
+  function lifeCfg(){ return LIFE_CONFIG[currentCancerId] || { label:'Life', icon:'❤️' }; }
+
+/* ======================================================================
+   ICONS — any "icon" field (on a cancer, topic, or elsewhere) can be either
+   a plain emoji ('🩸') or a path to your own image, e.g. 'icons/leukemia.png'
+   (relative to this .html file — put your files in an "icons/" folder next
+   to it) or a base64 data URL. Detected automatically by isImageIcon() below
+   — no other config needed, just swap the string.
+   ====================================================================== */
+  function isImageIcon(icon){
+    if(typeof icon !== 'string') return false;
+    return /^(data:image\/|https?:\/\/|icons\/|images\/)/i.test(icon) || /\.(png|jpe?g|svg|webp|gif)(\?.*)?$/i.test(icon);
+  }
+  function iconHTML(icon, sizePx){
+    sizePx = sizePx || 18;
+    if(isImageIcon(icon)) return `<img src="${icon}" style="width:${sizePx}px;height:${sizePx}px;object-fit:contain;vertical-align:middle;">`;
+    return icon;
+  }
+  const iconImageCache = {};
+  function getIconImage(src){
+    if(!iconImageCache[src]){
+      const img = new Image();
+      img.src = src;
+      iconImageCache[src] = img;
+    }
+    return iconImageCache[src];
+  }
+  // Draws an icon centered at (x,y) on the canvas — image if isImageIcon(), else emoji text.
+  function drawIconOnCanvas(icon, x, y, size){
+    if(isImageIcon(icon)){
+      const img = getIconImage(icon);
+      if(img.complete && img.naturalWidth > 0){
+        ctx.drawImage(img, x-size/2, y-size/2, size, size);
+        return;
+      }
+      return; // not loaded yet this frame — skip drawing rather than show a broken icon
+    }
+    ctx.font = `${size}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(icon, x, y);
+  }
+
+  /* ====================================================================== */
+
+  const stageEl = document.getElementById('stageEl');
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const LANES = 3;
+  const laneH = H / LANES;
+  const laneY = i => laneH * i + laneH / 2;
+  const PLAYER_X = 150;
+
+  // ---------- DOM refs ----------
+  const lifeLabel = document.getElementById('lifeLabel');
+  const glucoseVal = document.getElementById('glucoseVal');
+  const stageLine = document.getElementById('stageLine');
+  const topicChips = document.getElementById('topicChips');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const guideBtn = document.getElementById('guideBtn');
+
+  const landingScreen = document.getElementById('landingScreen');
+  const cancerPickView = document.getElementById('cancerPickView');
+  const cancerGrid = document.getElementById('cancerGrid');
+  const briefView = document.getElementById('briefView');
+  const briefTitle = document.getElementById('briefTitle');
+  const briefBlurb = document.getElementById('briefBlurb');
+  const backToPickBtn = document.getElementById('backToPickBtn');
+  const startBtn = document.getElementById('startBtn');
+  const manualBtn = document.getElementById('manualBtn');
+  const studyGuideBtnMenu = document.getElementById('studyGuideBtnMenu');
+  const courseListBtnMenu = document.getElementById('courseListBtnMenu');
+  const courseListBtnGuide = document.getElementById('courseListBtnGuide');
+
+  const practiceModeCard = document.getElementById('practiceModeCard');
+  const practiceSetupView = document.getElementById('practiceSetupView');
+  const practiceThemeGrid = document.getElementById('practiceThemeGrid');
+  const practiceTopicChecks = document.getElementById('practiceTopicChecks');
+  const practiceCourseSelect = document.getElementById('practiceCourseSelect');
+  const practiceBackBtn = document.getElementById('practiceBackBtn');
+  const practiceBrowseBtn = document.getElementById('practiceBrowseBtn');
+  const practiceStartBtn = document.getElementById('practiceStartBtn');
+  const mcqPracticeBar = document.getElementById('mcqPracticeBar');
+  const mcqPracticeProgress = document.getElementById('mcqPracticeProgress');
+  const mcqEndPracticeBtn = document.getElementById('mcqEndPracticeBtn');
+
+  const customModeCard = document.getElementById('customModeCard');
+  const customSetupView = document.getElementById('customSetupView');
+  const customThemeChecks = document.getElementById('customThemeChecks');
+  const customTopicChecks = document.getElementById('customTopicChecks');
+  const customCourseChecks = document.getElementById('customCourseChecks');
+  const customMatchCount = document.getElementById('customMatchCount');
+  const customBackBtn = document.getElementById('customBackBtn');
+  const customStartBtn = document.getElementById('customStartBtn');
+
+  const pauseScreen = document.getElementById('pauseScreen');
+  const pauseStatus = document.getElementById('pauseStatus');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const studyGuideFromPauseBtn = document.getElementById('studyGuideFromPauseBtn');
+  const manualFromPauseBtn = document.getElementById('manualFromPauseBtn');
+  const quitFromPauseBtn = document.getElementById('quitFromPauseBtn');
+  const endGameFromPauseBtn = document.getElementById('endGameFromPauseBtn');
+
+  const overScreen = document.getElementById('overScreen');
+  const overTitle = document.getElementById('overTitle');
+  const overText = document.getElementById('overText');
+  const viewSummaryBtn = document.getElementById('viewSummaryBtn');
+  const againBtn = document.getElementById('againBtn');
+  const quitFromOverBtn = document.getElementById('quitFromOverBtn');
+
+  const scenarioOverlay = document.getElementById('scenarioOverlay');
+  const scenarioIcon = document.getElementById('scenarioIcon');
+  const scenarioStageLabel = document.getElementById('scenarioStageLabel');
+  const scenarioText = document.getElementById('scenarioText');
+  const scenarioReqs = document.getElementById('scenarioReqs');
+  const scenarioContinueBtn = document.getElementById('scenarioContinueBtn');
+
+  const mcqModal = document.getElementById('mcqModal');
+  const mcqCat = document.getElementById('mcqCat');
+  const mcqPrompt = document.getElementById('mcqPrompt');
+  const mcqOptions = document.getElementById('mcqOptions');
+  const mcqFeedback = document.getElementById('mcqFeedback');
+  const mcqVerdict = document.getElementById('mcqVerdict');
+  const mcqExplain = document.getElementById('mcqExplain');
+  const mcqContinueBtn = document.getElementById('mcqContinueBtn');
+  const mcqViewGuideBtn = document.getElementById('mcqViewGuideBtn');
+
+  const summaryModal = document.getElementById('summaryModal');
+  const summaryClose = document.getElementById('summaryClose');
+  const summaryStats = document.getElementById('summaryStats');
+  const sumTabOrder = document.getElementById('sumTabOrder');
+  const sumTabTopic = document.getElementById('sumTabTopic');
+  const summaryBody = document.getElementById('summaryBody');
+
+  const infoModal = document.getElementById('infoModal');
+  const guideClose = document.getElementById('guideClose');
+  const guideTitle = document.getElementById('guideTitle');
+  const guideBlurb = document.getElementById('guideBlurb');
+  const guideThemeTabs = document.getElementById('guideThemeTabs');
+  const guideThemeLabel = document.getElementById('guideThemeLabel');
+  const guideTopicTabs = document.getElementById('guideTopicTabs');
+  const guideTabsWrap = document.getElementById('guideTabsWrap');
+  const guideListHeader = document.getElementById('guideListHeader');
+  const guideListBackBtn = document.getElementById('guideListBackBtn');
+  const guideSearchInput = document.getElementById('guideSearchInput');
+  const guideItemGrid = document.getElementById('guideItemGrid');
+  const itemDetailWrap = document.getElementById('itemDetailWrap');
+  const itemBackBtn = document.getElementById('itemBackBtn');
+  const itemImages = document.getElementById('itemImages');
+  const lightboxModal = document.getElementById('lightboxModal');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxCap = document.getElementById('lightboxCap');
+  const lightboxClose = document.getElementById('lightboxClose');
+  const itemCat = document.getElementById('itemCat');
+  const itemName = document.getElementById('itemName');
+  const itemCourse = document.getElementById('itemCourse');
+  const itemHashtags = document.getElementById('itemHashtags');
+  const guideCourseHeader = document.getElementById('guideCourseHeader');
+  const courseHeaderText = document.getElementById('courseHeaderText');
+  const courseBackBtn = document.getElementById('courseBackBtn');
+  const itemDesc = document.getElementById('itemDesc');
+  const itemMechWrap = document.getElementById('itemMechWrap');
+  const itemMech = document.getElementById('itemMech');
+  const itemFactsWrap = document.getElementById('itemFactsWrap');
+  const itemFacts = document.getElementById('itemFacts');
+  const itemRefsWrap = document.getElementById('itemRefsWrap');
+  const itemRefs = document.getElementById('itemRefs');
+
+  const manualModal = document.getElementById('manualModal');
+  const manualClose = document.getElementById('manualClose');
+  const manualGlucoseText = document.getElementById('manualGlucoseText');
+
+  const upBtn = document.getElementById('upBtn');
+  const downBtn = document.getElementById('downBtn');
+
+  // ---------- state ----------
+  let screenState = 'menu'; // menu | running | paused | mcq | scenario | over
+  let currentCancerId = null;
+  let stageIndex = 0;
+  let stageProgress = {};
+  let glucose = GAME_CONFIG.startingGlucose;
+  let myCorrectCount = 0;
+  let myIncorrectCount = 0;
+  let sessionLog = [];
+  let entities = [], floaters = [];
+  let player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
+  let obstacleTimer = 0, glucoseTimer = 0, bombTimer = 0;
+  let survivalTime = 0; // seconds elapsed in the current run — drives the gradual speed ramp
+  let speed = GAME_CONFIG.baseSpeed;
+  let lastT = 0;
+  let bgOffset = 0;
+
+  // ---------- Custom run state ----------
+  // A Custom run doesn't use STAGES[currentCancerId]/THEMES[currentCancerId]
+  // directly (there's no authored theme for an arbitrary Theme/Topic/Course
+  // filter) — instead currentCancerId is set to the literal string 'custom'
+  // and these two are filled in per-run. Every place elsewhere that used to
+  // read STAGES[currentCancerId] / THEMES[currentCancerId] goes through
+  // currentStages()/currentThemeMeta() instead, which fall back to these
+  // when currentCancerId==='custom' — everything else (topic requirements,
+  // topic-block spawning, the speed ramp, scoring) is unchanged, since a
+  // generated custom stage is shaped exactly like an authored one.
+  let customStages = null;       // generated array, same shape as STAGES.cancer
+  let customPoolByTopic = null;  // { topicId: [question, ...] } — the filtered pool
+  const CUSTOM_THEME_META = { label:'Custom run', icon:'🎯' };
+  function currentStages(){ return currentCancerId==='custom' ? customStages : STAGES[currentCancerId]; }
+  function currentThemeMeta(){ return currentCancerId==='custom' ? CUSTOM_THEME_META : THEMES[currentCancerId]; }
+
+  const questionQueues = {}; // 'cancer|topic' -> shuffled array
+  let pendingEntity = null;
+  let activeQuestionTheme = 'cancer';
+  let quizMode = 'runner'; // 'runner' | 'practice'
+  let practiceQueue = [];
+  let practiceCorrect = 0, practiceAnswered = 0;
+  let practiceTheme = null;
+  let pendingQuestion = null;
+  let mcqAnswered = false;
+  let guideJumpTopic = null;
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+  function nextQuestion(cancerId, topicId){
+    const key = cancerId+'|'+topicId;
+    if(!questionQueues[key] || questionQueues[key].length===0){
+      const source = (cancerId==='custom' && customPoolByTopic)
+        ? (customPoolByTopic[topicId] || [])
+        : (QUESTIONS_BY_THEME_TOPIC[cancerId]?.[topicId] || []);
+      questionQueues[key] = shuffle(source);
+    }
+    const q = questionQueues[key].shift();
+    if(!q) return q;
+    // Shuffle the option order every time a question is served, so the
+    // correct answer isn't always in the same position it was authored in.
+    const order = shuffle(q.options.map((_,i)=>i));
+    return {
+      ...q,
+      options: order.map(i=>q.options[i]),
+      correctIndex: order.indexOf(q.correctIndex),
+    };
+  }
+
+  function showScreen(name){
+    [landingScreen, pauseScreen, overScreen].forEach(s=>s.classList.remove('active'));
+    if(name==='landing') landingScreen.classList.add('active');
+    if(name==='paused') pauseScreen.classList.add('active');
+    if(name==='over') overScreen.classList.add('active');
+  }
+
+  // ---------- landing: cancer picker ----------
+  function buildCancerGrid(){
+    const ids = RUNNABLE_THEMES;
+    cancerGrid.innerHTML = '';
+    ids.forEach(id=>{
+      const c = THEMES[id];
+      const card = document.createElement('button');
+      card.className = 'pick-card';
+      card.innerHTML = `<span class="cc-icon">${iconHTML(c.icon,26)}</span><span class="cc-name">${c.label}</span><span class="cc-blurb">${c.blurb}</span>`;
+      card.addEventListener('click', ()=> openBrief(id));
+      cancerGrid.appendChild(card);
+    });
+  }
+  function openBrief(id){
+    currentCancerId = id;
+    const c = THEMES[id];
+    briefTitle.innerHTML = `${iconHTML(c.icon,22)} ${c.label}`;
+    briefBlurb.textContent = c.blurb;
+    cancerPickView.style.display = 'none';
+    briefView.style.display = 'block';
+  }
+  backToPickBtn.addEventListener('click', ()=>{
+    briefView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+  });
+  startBtn.addEventListener('click', startRun);
+
+  // ---------- custom run (Theme / Topic / Course, all independent filters) ----------
+  function customCheckedValues(container){
+    return [...container.querySelectorAll('input:checked')].map(cb=>cb.value);
+  }
+  function customFilteredQuestions(){
+    const themes = customCheckedValues(customThemeChecks);
+    const topics = customCheckedValues(customTopicChecks);
+    const courses = customCheckedValues(customCourseChecks);
+    return ALL_QUESTIONS.filter(q =>
+      (!themes.length || themes.includes(q.theme)) &&
+      (!topics.length || topics.includes(q.topic)) &&
+      (!courses.length || courses.includes(q.course))
+    );
+  }
+  function renderCustomChecks(){
+    customThemeChecks.innerHTML = Object.entries(THEMES).map(([id,t])=>
+      `<label><input type="checkbox" class="cust-check" value="${id}"> ${iconHTML(t.icon,14)} ${t.label}</label>`).join('');
+    customTopicChecks.innerHTML = Object.entries(TOPICS).map(([id,t])=>
+      `<label><input type="checkbox" class="cust-check" value="${id}"> ${iconHTML(t.icon,14)} ${t.label}</label>`).join('');
+    customCourseChecks.innerHTML = Object.entries(COURSES).map(([code,c])=>
+      `<label><input type="checkbox" class="cust-check" value="${code}"> ${c.code}</label>`).join('');
+    [customThemeChecks, customTopicChecks, customCourseChecks].forEach(container=>{
+      container.querySelectorAll('.cust-check').forEach(cb=>cb.addEventListener('change', updateCustomMatchCount));
+    });
+    updateCustomMatchCount();
+  }
+  function updateCustomMatchCount(){
+    const matches = customFilteredQuestions();
+    const topicCount = new Set(matches.map(q=>q.topic)).size;
+    customMatchCount.textContent = matches.length
+      ? `${matches.length} question${matches.length===1?'':'s'} match, across ${topicCount} topic${topicCount===1?'':'s'}.`
+      : `No questions match that combination yet — widen your filters.`;
+    customStartBtn.disabled = matches.length === 0;
+  }
+  // Generates a STAGES-shaped array on the fly (same fields an authored
+  // theme's stages have: n, roman, requirements, scenario) so every other
+  // part of the game — HUD chips, the speed ramp, the scenario transition
+  // screen, the win check — works completely unchanged. The only thing
+  // that's different is the scenario text is generic instead of a
+  // hand-written clinical narrative, since there's no single storyline for
+  // an arbitrary filter combination.
+  const CUSTOM_STAGE_BLURBS = [
+    "Warm-up — work through questions from your custom mix to get moving.",
+    "Keep going — the pace picks up from here.",
+    "Final stretch — finish strong.",
+  ];
+  const CUSTOM_PER_STAGE_PER_TOPIC = 3;
+  function buildCustomRunConfig(matches){
+    const byTopic = {};
+    matches.forEach(q=>{ (byTopic[q.topic] = byTopic[q.topic] || []).push(q); });
+    const topics = Object.keys(byTopic);
+    const stages = CUSTOM_STAGE_BLURBS.map((scenario, i)=>{
+      const requirements = {};
+      topics.forEach(t=>{ requirements[t] = CUSTOM_PER_STAGE_PER_TOPIC; });
+      return { n:i+1, roman:['I','II','III'][i], requirements, scenario };
+    });
+    return { stages, byTopic };
+  }
+  customModeCard.addEventListener('click', ()=>{
+    cancerPickView.style.display = 'none';
+    customSetupView.style.display = 'block';
+    renderCustomChecks();
+  });
+  customBackBtn.addEventListener('click', ()=>{
+    customSetupView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+  });
+  customStartBtn.addEventListener('click', ()=>{
+    const matches = customFilteredQuestions();
+    if(!matches.length){ toastCustom('No questions match those filters yet.'); return; }
+    const { stages, byTopic } = buildCustomRunConfig(matches);
+    currentCancerId = 'custom';
+    customStages = stages;
+    customPoolByTopic = byTopic;
+    customSetupView.style.display = 'none';
+    startRun();
+  });
+  // Tiny inline notice — this file has no shared toast component, so this
+  // just reuses the existing course-filter "no matches" pattern (an alert)
+  // rather than introducing new UI.
+  function toastCustom(msg){ alert(msg); }
+
+  // ---------- study & practice mode ----------
+  let practiceSelectedTheme = null;
+  function openPracticeSetup(){
+    cancerPickView.style.display = 'none';
+    briefView.style.display = 'none';
+    practiceSetupView.style.display = 'block';
+    practiceSelectedTheme = Object.keys(THEMES)[0];
+    renderPracticeThemeGrid();
+  }
+  function renderPracticeThemeGrid(){
+    practiceThemeGrid.innerHTML = Object.entries(THEMES).map(([id,t])=>{
+      const active = id===practiceSelectedTheme;
+      return `<button class="pick-card" data-th="${id}" style="border-color:${active?'var(--membrane)':'var(--panel-line)'};padding:10px;text-align:center;">
+        <span class="cc-icon" style="font-size:20px;">${iconHTML(t.icon,20)}</span><span class="cc-name" style="font-size:12.5px;">${t.label}</span>
+      </button>`;
+    }).join('');
+    practiceThemeGrid.querySelectorAll('[data-th]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        practiceSelectedTheme = btn.dataset.th;
+        renderPracticeThemeGrid();
+        renderPracticeTopicChecks();
+        renderPracticeCourseSelect();
+      });
+    });
+    renderPracticeTopicChecks();
+    renderPracticeCourseSelect();
+  }
+  function renderPracticeTopicChecks(){
+    const topics = Object.keys(THEMES[practiceSelectedTheme].topics);
+    practiceTopicChecks.innerHTML = topics.map(t=>{
+      const meta = TOPICS[t];
+      return `<label><input type="checkbox" class="pt-check" value="${t}"> ${iconHTML(meta.icon,14)} ${meta.label}</label>`;
+    }).join('');
+    practiceTopicChecks.querySelectorAll('.pt-check').forEach(cb=>{
+      cb.addEventListener('change', renderPracticeCourseSelect);
+    });
+  }
+  function selectedPracticeTopics(){
+    const checked = [...practiceTopicChecks.querySelectorAll('.pt-check:checked')].map(c=>c.value);
+    return checked.length ? checked : Object.keys(THEMES[practiceSelectedTheme].topics);
+  }
+  function renderPracticeCourseSelect(){
+    const topics = selectedPracticeTopics();
+    const courses = new Set();
+    topics.forEach(t=>{
+      (QUESTIONS_BY_THEME_TOPIC[practiceSelectedTheme]?.[t] || []).forEach(q=>{ if(q.relatedCourse) courses.add(q.relatedCourse); });
+    });
+    const sorted = [...courses].sort();
+    practiceCourseSelect.innerHTML = `<option value="">All courses</option>` + sorted.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  function matchingPracticeQuestions(){
+    const topics = selectedPracticeTopics();
+    const course = practiceCourseSelect.value;
+    const out = [];
+    topics.forEach(t=>{
+      (QUESTIONS_BY_THEME_TOPIC[practiceSelectedTheme]?.[t] || []).forEach(q=>{
+        if(!course || q.relatedCourse===course) out.push({ q, topic:t });
+      });
+    });
+    return out;
+  }
+  practiceModeCard.addEventListener('click', openPracticeSetup);
+  practiceBackBtn.addEventListener('click', ()=>{
+    practiceSetupView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+  });
+  practiceBrowseBtn.addEventListener('click', ()=>{
+    const topics = selectedPracticeTopics();
+    openStudyGuide(practiceSelectedTheme, topics[0], null);
+  });
+  practiceStartBtn.addEventListener('click', ()=>{
+    const matches = matchingPracticeQuestions();
+    if(!matches.length){ alert('No questions match those filters yet — try a different topic or course.'); return; }
+    practiceQueue = shuffle(matches);
+    practiceCorrect = 0; practiceAnswered = 0;
+    activeQuestionTheme = practiceSelectedTheme;
+    quizMode = 'practice';
+    screenState = 'mcq';
+    landingScreen.classList.remove('active');
+    advancePractice();
+  });
+  function advancePractice(){
+    if(practiceQueue.length===0){
+      mcqModal.classList.remove('active');
+      quizMode = 'runner';
+      screenState = 'menu';
+      showScreen('landing');
+      landingScreen.classList.add('active');
+      cancerPickView.style.display = 'block';
+      practiceSetupView.style.display = 'none';
+      openSummary();
+      return;
+    }
+    const next = practiceQueue.shift();
+    mcqPracticeBar.style.display = 'flex';
+    mcqPracticeProgress.textContent = `Practice · ${practiceAnswered} answered (${practiceCorrect} correct) · ${practiceQueue.length} left`;
+    presentQuestion(next.q, next.topic);
+  }
+  mcqEndPracticeBtn.addEventListener('click', ()=>{
+    practiceQueue = [];
+    mcqModal.classList.remove('active');
+    quizMode = 'runner';
+    screenState = 'menu';
+    showScreen('landing');
+    landingScreen.classList.add('active');
+    cancerPickView.style.display = 'block';
+    practiceSetupView.style.display = 'none';
+    openSummary();
+  });
+
+  // ---------- run lifecycle ----------
+  function resetRunState(){
+    stageIndex = 0;
+    glucose = GAME_CONFIG.startingGlucose;
+    myCorrectCount = 0;
+    myIncorrectCount = 0;
+    sessionLog = [];
+    entities = []; floaters = [];
+    player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
+    speed = GAME_CONFIG.baseSpeed;
+    survivalTime = 0;
+    obstacleTimer = GAME_CONFIG.initialObstacleDelayMs; glucoseTimer = GAME_CONFIG.initialGlucoseDelayMs;
+    bombTimer = GAME_CONFIG.bombSpawnBaseMs + Math.random()*GAME_CONFIG.bombSpawnRandMs;
+    Object.keys(questionQueues).forEach(k=>delete questionQueues[k]);
+    updateGlucoseUI();
+  }
+  function updateGlucoseUI(){
+    lifeLabel.textContent = lifeCfg().label;
+    glucoseVal.textContent = Math.max(0, Math.round(glucose));
+    glucoseVal.style.color = glucose < 20 ? 'var(--danger)' : 'var(--hud-ink)';
+    if(mp.active) mpSyncMyState();
+  }
+  function activeTopicsForStage(){
+    const req = currentStages()[stageIndex].requirements;
+    return Object.keys(req).filter(t => (stageProgress[t]||0) < req[t]);
+  }
+  function updateHUD(){
+    const st = currentStages()[stageIndex];
+    stageLine.textContent = `Stage ${st.roman}`;
+    topicChips.innerHTML = Object.keys(st.requirements).map(t=>{
+      const meta = TOPICS[t];
+      const cur = Math.min(stageProgress[t]||0, st.requirements[t]);
+      const done = cur >= st.requirements[t];
+      return `<span class="topic-chip" style="color:${meta.color};border-color:${meta.color}77;background:${meta.color}${done?'33':'11'}">${iconHTML(meta.icon,13)} ${cur}/${st.requirements[t]}</span>`;
+    }).join('');
+    if(mp.active) mpSyncMyState();
+  }
+  function startRun(){
+    resetRunState();
+    stageProgress = {};
+    landingScreen.classList.remove('active');
+    showStageScenario(0, true);
+  }
+  function showStageScenario(idx, isStart){
+    screenState = 'scenario';
+    const st = currentStages()[idx];
+    const c = currentThemeMeta();
+    scenarioIcon.innerHTML = iconHTML(c.icon,40);
+    scenarioStageLabel.textContent = `STAGE ${st.roman}`;
+    scenarioText.textContent = st.scenario;
+    scenarioReqs.innerHTML = Object.keys(st.requirements).map(t=>{
+      const meta = TOPICS[t];
+      return `<span class="req-chip" style="color:${meta.color};border-color:${meta.color}77">${iconHTML(meta.icon,14)} ${meta.label} × ${st.requirements[t]}</span>`;
+    }).join('');
+    scenarioOverlay.classList.add('active');
+    scenarioContinueBtn.onclick = ()=>{
+      scenarioOverlay.classList.remove('active');
+      stageProgress = {};
+      Object.keys(st.requirements).forEach(t=>stageProgress[t]=0);
+      updateHUD();
+      resumeIntoRunning();
+    };
+  }
+  function resumeIntoRunning(){
+    screenState = 'running';
+    [landingScreen, pauseScreen, overScreen].forEach(s=>s.classList.remove('active'));
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  }
+  function pauseGame(){
+    if(screenState!=='running') return;
+    screenState = 'paused';
+    pauseBtn.textContent = '▶';
+    pauseStatus.textContent = `Stage ${currentStages()[stageIndex].roman} · Glucose ${Math.round(glucose)}`;
+    showScreen('paused');
+  }
+  function resumeGame(){
+    if(screenState!=='paused') return;
+    screenState = 'running';
+    pauseBtn.textContent = '⏸';
+    pauseScreen.classList.remove('active');
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  }
+  function togglePause(){
+    if(screenState==='running') pauseGame();
+    else if(screenState==='paused') resumeGame();
+  }
+  function endRun(outcome){
+    if(mp.active && !mp.finished){
+      mpMarkDone(outcome==='win' ? 'finished' : (outcome==='ended' ? 'ended' : 'eliminated'));
+      return;
+    }
+    screenState = 'over';
+    mpSetOverButtons('solo');
+    const life = lifeCfg().label;
+    if(outcome==='win'){
+      overTitle.textContent = 'All stages complete';
+      overText.innerHTML = `You made it through all stages with <b>${Math.round(glucose)}</b> ${life} remaining. ${COMPLETE_SCENARIO}`;
+    } else if(outcome==='ended'){
+      overTitle.textContent = 'Run ended';
+      overText.innerHTML = `You ended the run on <b>Stage ${currentStages()[stageIndex].roman}</b> with <b>${Math.round(glucose)}</b> ${life} remaining.`;
+    } else {
+      overTitle.textContent = `Out of ${life}`;
+      overText.innerHTML = `${life} ran out on <b>Stage ${currentStages()[stageIndex].roman}</b>. Review what you got wrong below and try again.`;
+    }
+    showScreen('over');
+  }
+  function mpSetOverButtons(mode){
+    // 'solo': normal single-player over-screen buttons.
+    // 'waiting': your race is done but the match isn't resolved yet — no
+    //   restart/quit, since either would abandon the match mid-race.
+    // 'final': match is fully resolved — buttons go back to Group Race setup or home.
+    if(mode==='waiting'){
+      againBtn.style.display = 'none';
+      quitFromOverBtn.style.display = 'none';
+    } else if(mode==='final'){
+      againBtn.style.display = 'inline-block';
+      quitFromOverBtn.style.display = 'inline-block';
+      againBtn.textContent = '🆚 New race';
+      quitFromOverBtn.innerHTML = '🏠 Back to home';
+    } else {
+      againBtn.style.display = 'inline-block';
+      quitFromOverBtn.style.display = 'inline-block';
+      againBtn.textContent = 'Play again';
+      quitFromOverBtn.innerHTML = '🏠 Quit to menu';
+    }
+  }
+  resumeBtn.addEventListener('click', resumeGame);
+  restartBtn.addEventListener('click', ()=>{ pauseScreen.classList.remove('active'); if(mp.active) mpTeardown(); startRun(); });
+  quitFromPauseBtn.addEventListener('click', ()=>{ if(mp.active) mpTeardown(); quitToMenu(); });
+  endGameFromPauseBtn.addEventListener('click', ()=>{
+    pauseScreen.classList.remove('active');
+    endRun('ended');
+    if(!mp.active) openSummary();
+  });
+  quitFromOverBtn.addEventListener('click', ()=>{ if(mp.active) mpTeardown(); quitToMenu(); });
+  againBtn.addEventListener('click', ()=>{
+    if(mp.active && mp.finished){
+      mpTeardown();
+      quitToMenu();
+      mpModeCard.click();
+      return;
+    }
+    if(mp.active) mpTeardown();
+    startRun();
+  });
+  pauseBtn.addEventListener('click', togglePause);
+  function quitToMenu(){
+    screenState = 'menu';
+    briefView.style.display = 'none';
+    practiceSetupView.style.display = 'none';
+    mpSetupView.style.display = 'none';
+    mpJoinEntryView.style.display = 'none';
+    mpWaitView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+    showScreen('landing');
+    landingScreen.classList.add('active');
+  }
+
+  // ---------- lanes / controls ----------
+  function setLane(dir){
+    if(screenState!=='running') return;
+    const next = player.targetLane + dir;
+    if(next>=0 && next<LANES) player.targetLane = next;
+  }
+  upBtn.addEventListener('click', ()=>setLane(-1));
+  downBtn.addEventListener('click', ()=>setLane(1));
+  let touchStartY = null;
+  canvas.addEventListener('touchstart', e=>{ touchStartY = e.touches[0].clientY; });
+  canvas.addEventListener('touchend', e=>{
+    if(touchStartY===null) return;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if(Math.abs(dy) > 24) setLane(dy<0 ? -1 : 1);
+    touchStartY = null;
+  });
+
+  window.addEventListener('keydown', e=>{
+    if(mcqModal.classList.contains('active')){
+      if(!mcqAnswered){
+        const n = parseInt(e.key,10);
+        if(n>=1 && n<=6){
+          const btns = mcqOptions.querySelectorAll('.mcq-option');
+          if(btns[n-1]) btns[n-1].click();
+        }
+      } else if(e.key==='Enter'){
+        e.preventDefault();
+        mcqContinueBtn.click();
+      }
+      return;
+    }
+    if(lightboxModal.classList.contains('active')){ if(e.key==='Escape') closeLightbox(); return; }
+    if(infoModal.classList.contains('active')){ if(e.key==='Escape') guideClose.click(); return; }
+    if(manualModal.classList.contains('active')){ if(e.key==='Escape') manualClose.click(); return; }
+    if(summaryModal.classList.contains('active')){ if(e.key==='Escape') summaryClose.click(); return; }
+    if(['ArrowUp','w','W'].includes(e.key)) setLane(-1);
+    if(['ArrowDown','s','S'].includes(e.key)) setLane(1);
+    if(e.key==='p' || e.key==='P' || e.key==='Escape') togglePause();
+  });
+
+  // ---------- spawning ----------
+  function spawnTopicBlock(){
+    const active = activeTopicsForStage();
+    if(active.length===0) return;
+    const topic = active[Math.floor(Math.random()*active.length)];
+    entities.push({ x:W+40, lane:Math.floor(Math.random()*LANES), r:24, type:'topic', topic, hit:false });
+  }
+  function spawnGlucosePickup(){
+    entities.push({ x:W+40, lane:Math.floor(Math.random()*LANES), r:10, type:'glucose', hit:false });
+  }
+  function spawnBomb(){
+    entities.push({ x:W+40, lane:Math.floor(Math.random()*LANES), r:20, type:'bomb', hit:false });
+  }
+  function popup(x,y,text,color){ floaters.push({x,y,text,color,life:1}); }
+  function flashRed(){
+    stageEl.classList.add('bomb-flash');
+    setTimeout(()=>stageEl.classList.remove('bomb-flash'), 350);
+  }
+
+  // ---------- MCQ flow ----------
+  // quizMode: 'runner' (glucose/stage-driven, from canvas collisions) or
+  // 'practice' (untimed practice quiz, driven by the practice queue).
+  let pendingTopic = null;
+  function presentQuestion(q, topic){
+    pendingQuestion = q;
+    pendingTopic = topic;
+    mcqAnswered = false;
+    const meta = TOPICS[topic];
+    mcqCat.innerHTML = `${iconHTML(meta.icon,14)} ${meta.label}`;
+    mcqCat.style.color = meta.color;
+    mcqPrompt.textContent = q.prompt;
+    mcqOptions.innerHTML = '';
+    q.options.forEach((opt,i)=>{
+      const b = document.createElement('button');
+      b.className = 'mcq-option';
+      b.innerHTML = `<span class="opt-key">${i+1}</span>${opt}`;
+      b.addEventListener('click', ()=> answerMCQ(i));
+      mcqOptions.appendChild(b);
+    });
+    mcqFeedback.style.display = 'none';
+    mcqModal.classList.add('active');
+  }
+  function openMCQ(entity){
+    pendingEntity = entity;
+    quizMode = 'runner';
+    screenState = 'mcq';
+    const q = nextQuestion(currentCancerId, entity.topic);
+    if(!q){ // no questions available — treat as a no-op, resume
+      entities = entities.filter(e=>e!==entity);
+      screenState = 'running';
+      lastT = performance.now();
+      requestAnimationFrame(loop);
+      return;
+    }
+    // In a Custom run, questions are pooled from several real themes, so
+    // "View in study guide" needs to open the question's actual origin
+    // theme (carried on q.theme by the ALL_QUESTIONS index), not the
+    // literal 'custom' id.
+    activeQuestionTheme = (currentCancerId==='custom' && q.theme) ? q.theme : currentCancerId;
+    presentQuestion(q, entity.topic);
+    mcqPracticeBar.style.display = 'none';
+  }
+  function answerMCQ(chosenIndex){
+    if(mcqAnswered) return;
+    mcqAnswered = true;
+    const q = pendingQuestion;
+    const correct = chosenIndex === q.correctIndex;
+    const btns = mcqOptions.querySelectorAll('.mcq-option');
+    btns.forEach((b,i)=>{
+      b.classList.add('disabled');
+      if(i===q.correctIndex) b.classList.add('correct');
+      else if(i===chosenIndex) b.classList.add('wrong');
+    });
+    if(correct){
+      if(quizMode==='runner'){ stageProgress[pendingTopic] = (stageProgress[pendingTopic]||0) + 1; myCorrectCount++; }
+      else practiceCorrect++;
+      mcqVerdict.textContent = 'Correct';
+      mcqVerdict.className = 'mcq-verdict verdict-good';
+    } else {
+      if(quizMode==='runner'){ glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI(); }
+      mcqVerdict.textContent = 'Not quite';
+      mcqVerdict.className = 'mcq-verdict verdict-bad';
+    }
+    mcqExplain.textContent = q.explanation;
+    mcqFeedback.style.display = 'block';
+    if(quizMode==='runner') updateHUD();
+    sessionLog.push({
+      mode: quizMode, theme: activeQuestionTheme, stage: quizMode==='runner' ? currentStages()[stageIndex].n : null,
+      topic: pendingTopic, itemId: q.itemId,
+      prompt: q.prompt, options: q.options, correctIndex: q.correctIndex, chosenIndex, correct,
+    });
+    if(quizMode==='practice') practiceAnswered++;
+  }
+  mcqViewGuideBtn.addEventListener('click', ()=>{
+    openStudyGuide(activeQuestionTheme, pendingTopic, pendingQuestion ? pendingQuestion.itemId : null);
+  });
+  mcqContinueBtn.addEventListener('click', ()=>{
+    mcqModal.classList.remove('active');
+    if(quizMode==='practice'){
+      pendingQuestion = null;
+      advancePractice();
+      return;
+    }
+    entities = entities.filter(e=>e!==pendingEntity);
+    pendingEntity = null; pendingQuestion = null;
+    if(glucose < 0){ endRun('loss'); return; }
+    if(activeTopicsForStage().length===0){
+      if(stageIndex >= currentStages().length-1){ endRun('win'); return; }
+      stageIndex++;
+      showStageScenario(stageIndex, false);
+      return;
+    }
+    screenState = 'running';
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  });
+
+  // ---------- update / draw ----------
+  function update(dt){
+    survivalTime += dt;
+    speed = Math.min(GAME_CONFIG.maxSpeed, GAME_CONFIG.baseSpeed + (stageIndex*GAME_CONFIG.speedRampPerStage) + (survivalTime*GAME_CONFIG.speedRampPerSecond));
+    const desiredY = laneY(player.targetLane);
+    player.y += (desiredY - player.y) * Math.min(1, dt*10);
+    player.lane = player.targetLane;
+    player.wob += dt*6;
+
+    obstacleTimer -= dt*1000;
+    glucoseTimer -= dt*1000;
+    bombTimer -= dt*1000;
+    if(obstacleTimer <= 0){
+      spawnTopicBlock();
+      obstacleTimer = GAME_CONFIG.obstacleSpawnBaseMs + Math.random()*GAME_CONFIG.obstacleSpawnRandMs;
+    }
+    if(glucoseTimer <= 0){
+      spawnGlucosePickup();
+      glucoseTimer = GAME_CONFIG.glucoseSpawnBaseMs + Math.random()*GAME_CONFIG.glucoseSpawnRandMs;
+    }
+    if(bombTimer <= 0){
+      spawnBomb();
+      bombTimer = GAME_CONFIG.bombSpawnBaseMs + Math.random()*GAME_CONFIG.bombSpawnRandMs;
+    }
+
+    for(const e of entities){
+      e.x -= speed*dt;
+      if(!e.hit && e.lane===player.lane && Math.abs(e.x - PLAYER_X) < e.r+22){
+        e.hit = true;
+        if(e.type==='glucose'){
+          glucose += GAME_CONFIG.glucosePickupValue;
+          updateGlucoseUI();
+          popup(e.x, laneY(e.lane)-24, `+${GAME_CONFIG.glucosePickupValue} ${lifeCfg().label}`, '#3ee6b8');
+        } else if(e.type==='topic'){
+          openMCQ(e);
+        } else if(e.type==='bomb'){
+          glucose -= GAME_CONFIG.bombDamage;
+          updateGlucoseUI();
+          popup(e.x, laneY(e.lane)-24, `💣 -${GAME_CONFIG.bombDamage} ${lifeCfg().label}`, 'var(--danger)');
+          flashRed();
+          if(glucose < 0 && screenState==='running'){ endRun('loss'); }
+        }
+      }
+    }
+    entities = entities.filter(e => e.x > -60 && !(e.hit && e.type!=='topic'));
+    for(const f of floaters){ f.y -= dt*40; f.life -= dt*0.9; }
+    floaters = floaters.filter(f=>f.life>0);
+  }
+  function drawVessel(){
+    ctx.fillStyle = '#1c0710'; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(255,93,143,.10)'; ctx.lineWidth = 2;
+    for(let i=1;i<LANES;i++){ ctx.beginPath(); ctx.moveTo(0, laneH*i); ctx.lineTo(W, laneH*i); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(255,93,143,.16)'; ctx.lineWidth = 3; ctx.setLineDash([26,18]);
+    for(let i=0;i<LANES;i++){ ctx.beginPath(); ctx.moveTo(-bgOffset, laneY(i)); ctx.lineTo(W, laneY(i)); ctx.stroke(); }
+    ctx.setLineDash([]);
+    const g1 = ctx.createLinearGradient(0,0,0,40); g1.addColorStop(0,'#3a0d1c'); g1.addColorStop(1,'rgba(58,13,28,0)');
+    ctx.fillStyle = g1; ctx.fillRect(0,0,W,40);
+    const g2 = ctx.createLinearGradient(0,H-40,0,H); g2.addColorStop(0,'rgba(58,13,28,0)'); g2.addColorStop(1,'#3a0d1c');
+    ctx.fillStyle = g2; ctx.fillRect(0,H-40,W,40);
+  }
+  function drawPlayer(){
+    const y = player.y + Math.sin(player.wob)*2, x = PLAYER_X;
+    ctx.save(); ctx.shadowColor = '#ff5d8f'; ctx.shadowBlur = 22; ctx.fillStyle = '#ff5d8f';
+    ctx.beginPath(); ctx.arc(x,y,26,0,Math.PI*2); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#c22a5c';
+    for(let i=0;i<8;i++){
+      const a = (i/8)*Math.PI*2 + player.wob*0.3, rr = 26 + Math.sin(player.wob*2+i)*3;
+      ctx.beginPath(); ctx.arc(x+Math.cos(a)*rr, y+Math.sin(a)*rr, 4.5, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = '#ffd93f'; ctx.beginPath(); ctx.arc(x-4,y-2,9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c58f00'; ctx.beginPath(); ctx.arc(x-6,y-4,3,0,Math.PI*2); ctx.fill();
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+  function drawEntity(e){
+    const y = laneY(e.lane);
+    if(e.type==='glucose'){
+      ctx.save(); ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffd23f';
+      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      return;
+    }
+    if(e.type==='bomb'){
+      ctx.save(); ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 16; ctx.fillStyle = '#1a0508';
+      ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+      ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('💣', e.x, y);
+      return;
+    }
+    const meta = TOPICS[e.topic]; const w=70,h=44;
+    ctx.save(); ctx.shadowColor = meta.color; ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(20,6,12,.85)'; ctx.strokeStyle = meta.color; ctx.lineWidth = 2;
+    roundRect(ctx, e.x-w/2, y-h/2, w, h, 10); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    drawIconOnCanvas(meta.icon, e.x, y-8, 20);
+    ctx.font = 'bold 8.5px monospace'; ctx.fillStyle = meta.color;
+    ctx.fillText(meta.label.toUpperCase(), e.x, y+14);
+  }
+  function drawFloaters(){
+    ctx.textAlign='center';
+    for(const f of floaters){
+      ctx.globalAlpha = Math.max(0,f.life);
+      ctx.fillStyle = f.color; ctx.font = 'bold 14px monospace';
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+  function draw(){
+    bgOffset = (bgOffset + speed*(1/60)) % 80;
+    drawVessel();
+    for(const e of entities) drawEntity(e);
+    drawPlayer();
+    drawFloaters();
+  }
+  function loop(t){
+    if(screenState!=='running') return;
+    const dt = Math.min(0.033, (t-lastT)/1000);
+    lastT = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- study guide ----------
+  let guideActiveTheme = 'cancer';
+  let guideActiveTopic = null;
+  let guideMode = 'topic'; // 'topic' | 'course' — where the item grid's contents came from
+  let guideActiveCourse = null;
+  function openStudyGuide(jumpTheme, jumpTopic, jumpItemId){
+    if(screenState==='running') pauseGame();
+    guideMode = 'topic';
+    guideSearchInput.value = '';
+    guideListHeader.style.display = 'none';
+    guideCourseHeader.style.display = 'none';
+    guideTabsWrap.style.display = 'block';
+    const themeIds = Object.keys(THEMES);
+    guideActiveTheme = jumpTheme && THEMES[jumpTheme] ? jumpTheme : (THEMES[guideActiveTheme] ? guideActiveTheme : themeIds[0]);
+    const c = THEMES[guideActiveTheme];
+    guideTitle.innerHTML = `${iconHTML(c.icon,20)} ${c.label} — study guide`;
+    guideBlurb.textContent = c.blurb;
+    renderGuideThemeTabs(themeIds);
+    const topics = Object.keys(c.topics);
+    guideActiveTopic = jumpTopic && topics.includes(jumpTopic) ? jumpTopic : topics[0];
+    renderGuideTabs(c, topics);
+    renderGuideItems(c);
+    itemDetailWrap.style.display = 'none';
+    guideItemGrid.style.display = 'grid';
+    infoModal.classList.add('active');
+    if(jumpItemId){
+      const item = c.topics[guideActiveTopic].items[jumpItemId];
+      if(item) openItemDetail(guideActiveTopic, jumpItemId, item);
+    }
+  }
+  // Theme tabs (the top-level Cancer/Biochemistry switch) use the bolder
+  // .theme-tab style; Topic tabs use the smaller .topic-tab pill style —
+  // kept visually distinct so it's clear they're two different levels of
+  // filtering, not the same kind of control.
+  function renderGuideThemeTabs(themeIds){
+    if(themeIds.length<2){ guideThemeLabel.style.display='none'; guideThemeTabs.style.display='none'; guideThemeTabs.innerHTML=''; return; }
+    guideThemeLabel.style.display = 'block';
+    guideThemeTabs.style.display = 'flex';
+    guideThemeTabs.innerHTML = themeIds.map(id=>{
+      const t = THEMES[id];
+      const active = id===guideActiveTheme;
+      return `<button class="theme-tab" data-th="${id}" style="border-color:${active?'var(--membrane)':'var(--panel-line)'};color:${active?'#1a0508':'var(--hud-ink)'};background:${active?'var(--membrane)':'transparent'}">${iconHTML(t.icon,15)} ${t.label}</button>`;
+    }).join('');
+    guideThemeTabs.querySelectorAll('[data-th]').forEach(btn=>{
+      btn.addEventListener('click', ()=> openStudyGuide(btn.dataset.th, null, null));
+    });
+  }
+  function renderGuideTabs(c, topics){
+    guideTopicTabs.innerHTML = topics.map(t=>{
+      const meta = TOPICS[t];
+      const active = t===guideActiveTopic;
+      return `<button class="topic-tab" data-t="${t}" style="border-color:${meta.color}${active?'':'55'};color:${active?'#1a0508':meta.color};background:${active?meta.color:'transparent'}">${iconHTML(meta.icon,15)} ${meta.label}</button>`;
+    }).join('');
+    guideTopicTabs.querySelectorAll('[data-t]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        guideActiveTopic = btn.dataset.t;
+        guideSearchInput.value = '';
+        renderGuideTabs(c, topics);
+        renderGuideItems(c);
+        itemDetailWrap.style.display = 'none';
+        guideItemGrid.style.display = 'grid';
+      });
+    });
+  }
+  function renderGuideItems(c){
+    const topicData = c.topics[guideActiveTopic];
+    const meta = TOPICS[guideActiveTopic];
+    guideItemGrid.innerHTML = '';
+    Object.entries(topicData.items).forEach(([id, item])=>{
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.style.color = meta.color;
+      card.dataset.search = `${item.label} ${item.description||''} ${(item.hashtags||[]).join(' ')}`.toLowerCase();
+      card.innerHTML = `<div class="ic-name">${item.label}</div><div class="ic-hint">${item.images && item.images.length ? '🖼 has image' : 'tap for details'}</div>`;
+      card.addEventListener('click', ()=> openItemDetail(guideActiveTopic, id, item));
+      guideItemGrid.appendChild(card);
+    });
+    applyGuideSearch();
+  }
+  // Filters whatever's currently in guideItemGrid by name/description/tag —
+  // works the same regardless of whether the grid is showing a topic's
+  // items, a course view, a tag view, or the course list, since every
+  // card carries its own data-search text.
+  function applyGuideSearch(){
+    const q = guideSearchInput.value.trim().toLowerCase().replace(/^#/,'');
+    guideItemGrid.querySelectorAll('[data-search]').forEach(card=>{
+      card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
+    });
+  }
+  guideSearchInput.addEventListener('input', applyGuideSearch);
+  function openItemDetail(topicId, itemId, item){
+    const meta = TOPICS[topicId];
+    guideItemGrid.style.display = 'none';
+    guideTabsWrap.style.display = 'none';
+    guideCourseHeader.style.display = 'none';
+    itemDetailWrap.style.display = 'block';
+    itemCat.textContent = meta.label;
+    itemCat.style.color = meta.color;
+    itemName.textContent = item.label;
+    if(item.relatedCourse){
+      itemCourse.innerHTML = `🎓 <span style="cursor:pointer;text-decoration:underline;color:var(--membrane);">${item.relatedCourse}</span>`;
+      itemCourse.title = 'View everything tagged with this course';
+      itemCourse.onclick = ()=> openCourseView(item.relatedCourse, 'topic');
+    } else {
+      itemCourse.textContent = '';
+      itemCourse.onclick = null;
+    }
+    // Hashtags are clickable — they open a filtered view of every item
+    // sharing that tag, the same pattern as clicking the course pill above.
+    itemHashtags.innerHTML = (item.hashtags||[]).map(h=>`<button type="button" class="tag-chip-btn" data-tag="${h}">#${h}</button>`).join('');
+    itemHashtags.querySelectorAll('[data-tag]').forEach(btn=>{
+      btn.addEventListener('click', ()=> openTagView(btn.dataset.tag, 'topic'));
+    });
+    itemDesc.textContent = item.description || '';
+    if(item.mechanism){ itemMech.textContent = item.mechanism; itemMechWrap.style.display='block'; } else { itemMechWrap.style.display='none'; }
+    if(item.funFacts && item.funFacts.length){ itemFacts.innerHTML = item.funFacts.map(f=>`<li>${f}</li>`).join(''); itemFactsWrap.style.display='block'; } else { itemFactsWrap.style.display='none'; }
+    if(item.refs && item.refs.length){
+      itemRefs.innerHTML = item.refs.map(r=> r.url ? `<li><a href="${r.url}" target="_blank" rel="noopener" style="color:var(--membrane)">${r.label}</a></li>` : `<li>${r.label}</li>`).join('');
+      itemRefsWrap.style.display = 'block';
+    } else { itemRefsWrap.style.display = 'none'; }
+    itemImages.innerHTML = '';
+    if(item.images && item.images.length){
+      item.images.forEach(img=>{
+        const box = document.createElement('div');
+        box.className = 'img-box';
+        box.innerHTML = `<img src="${img.url}" alt="${img.caption||item.label}"><div class="img-cap">${img.caption||''}</div>`;
+        box.querySelector('img').addEventListener('click', ()=> openLightbox(img.url, img.caption||item.label));
+        itemImages.appendChild(box);
+      });
+    } else {
+      itemImages.innerHTML = `<div class="img-placeholder">No image added yet</div>`;
+    }
+    itemBackBtn.textContent = (guideMode==='course' || guideMode==='tag') ? '← Back' : '← All topics';
+    itemBackBtn.onclick = ()=>{
+      itemDetailWrap.style.display = 'none';
+      guideItemGrid.style.display = 'grid';
+      if(guideMode==='course' || guideMode==='tag'){
+        guideCourseHeader.style.display = 'block';
+      } else {
+        guideTabsWrap.style.display = 'block';
+      }
+    };
+  }
+  // Shared by "browse by course" and "click a #hashtag" — both are just a
+  // filtered view of every item, across every theme and topic, matching
+  // some predicate. Keeping one implementation means the back-navigation,
+  // search box, and card rendering all behave identically for both.
+  let courseViewOrigin = 'topic'; // 'topic' | 'list' — where "back" should return to
+  function openFilteredItemView(mode, headerText, origin, matchFn){
+    guideMode = mode; // 'course' | 'tag'
+    guideSearchInput.value = '';
+    courseViewOrigin = origin || 'topic';
+    itemDetailWrap.style.display = 'none';
+    guideTabsWrap.style.display = 'none';
+    guideListHeader.style.display = 'none';
+    guideCourseHeader.style.display = 'block';
+    courseBackBtn.textContent = courseViewOrigin==='list' ? '← Back to course list' : '← Back to topics';
+    courseHeaderText.textContent = headerText;
+    const matches = [];
+    Object.entries(THEMES).forEach(([themeId, theme])=>{
+      Object.entries(theme.topics).forEach(([topicId, topicData])=>{
+        Object.entries(topicData.items).forEach(([itemId, item])=>{
+          if(matchFn(item)) matches.push({ themeId, topicId, itemId, item });
+        });
+      });
+    });
+    guideItemGrid.style.display = 'grid';
+    guideItemGrid.innerHTML = '';
+    if(!matches.length){
+      guideItemGrid.innerHTML = `<p class="p-desc">Nothing else here yet.</p>`;
+      return;
+    }
+    matches.forEach(({themeId, topicId, itemId, item})=>{
+      const meta = TOPICS[topicId];
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.style.color = meta.color;
+      card.dataset.search = `${item.label} ${item.description||''} ${(item.hashtags||[]).join(' ')}`.toLowerCase();
+      card.innerHTML = `<div class="ic-name">${iconHTML(meta.icon,13)} ${item.label}</div><div class="ic-hint">${THEMES[themeId].label} · ${meta.label}</div>`;
+      card.addEventListener('click', ()=> openItemDetail(topicId, itemId, item));
+      guideItemGrid.appendChild(card);
+    });
+  }
+  // Shows every item, across every theme and topic, that shares the given
+  // relatedCourse value — reached by clicking a course name on an item page,
+  // or by picking a specific course from "Browse by course".
+  function openCourseView(courseName, origin){
+    guideActiveCourse = courseName;
+    openFilteredItemView('course', `🎓 ${courseName}`, origin, item=>item.relatedCourse===courseName);
+  }
+  // Shows every item, across every theme and topic, carrying the given
+  // hashtag — reached by clicking a #tag chip on an item page.
+  function openTagView(tag, origin){
+    openFilteredItemView('tag', `# ${tag}`, origin, item=>(item.hashtags||[]).includes(tag));
+  }
+  // Lists every distinct course tag across every theme — the direct "browse
+  // by course" entry point, not requiring a click-through from an item.
+  function openCourseList(){
+    if(screenState==='running') pauseGame();
+    guideMode = 'courseList';
+    guideActiveCourse = null;
+    guideSearchInput.value = '';
+    itemDetailWrap.style.display = 'none';
+    guideTabsWrap.style.display = 'none';
+    guideCourseHeader.style.display = 'none';
+    guideListHeader.style.display = 'block';
+    guideTitle.textContent = '🎓 Browse by course';
+    guideBlurb.textContent = 'Grouped by unit code — pick a course/lecture to see everything filed under it.';
+    const courseMap = {}; // courseName -> count
+    Object.values(THEMES).forEach(theme=>{
+      Object.values(theme.topics).forEach(topicData=>{
+        Object.values(topicData.items).forEach(item=>{
+          if(item.relatedCourse) courseMap[item.relatedCourse] = (courseMap[item.relatedCourse]||0) + 1;
+        });
+      });
+    });
+    // Group by unit code — the first whitespace-separated token of the
+    // relatedCourse string (e.g. "MEDS3002" from "MEDS3002 L14 ...").
+    const units = {};
+    Object.keys(courseMap).forEach(name=>{
+      const unit = name.split(/\s+/)[0] || 'Other';
+      (units[unit] = units[unit] || []).push(name);
+    });
+    const unitNames = Object.keys(units).sort();
+    guideItemGrid.style.display = 'grid';
+    guideItemGrid.innerHTML = '';
+    if(!unitNames.length){
+      guideItemGrid.innerHTML = `<p class="p-desc">No items have a relatedCourse tag yet.</p>`;
+    } else {
+      unitNames.forEach(unit=>{
+        const section = document.createElement('div');
+        section.style.gridColumn = '1 / -1';
+        section.className = 'sum-group-title';
+        section.style.marginTop = '10px';
+        section.textContent = `📘 ${unit}`;
+        guideItemGrid.appendChild(section);
+        units[unit].sort().forEach(name=>{
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.dataset.search = name.toLowerCase();
+          card.innerHTML = `<div class="ic-name">🎓 ${name}</div><div class="ic-hint">${courseMap[name]} item${courseMap[name]===1?'':'s'}</div>`;
+          card.addEventListener('click', ()=> openCourseView(name, 'list'));
+          guideItemGrid.appendChild(card);
+        });
+      });
+    }
+    infoModal.classList.add('active');
+  }
+  courseBackBtn.addEventListener('click', ()=>{
+    if(courseViewOrigin==='list'){ openCourseList(); return; }
+    openStudyGuide(guideActiveTheme, guideActiveTopic, null);
+  });
+  guideListBackBtn.addEventListener('click', ()=> openStudyGuide(guideActiveTheme, guideActiveTopic, null));
+  guideClose.addEventListener('click', ()=> infoModal.classList.remove('active'));
+
+  // ---------- image lightbox ----------
+  function openLightbox(url, caption){
+    lightboxImg.src = url;
+    lightboxImg.alt = caption || '';
+    lightboxCap.textContent = caption || '';
+    lightboxModal.classList.add('active');
+  }
+  function closeLightbox(){ lightboxModal.classList.remove('active'); lightboxImg.src = ''; }
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxModal.addEventListener('click', (e)=>{ if(e.target===lightboxModal) closeLightbox(); });
+  lightboxImg.addEventListener('click', closeLightbox);
+  guideBtn.addEventListener('click', ()=> openStudyGuide(null, null, null));
+  studyGuideBtnMenu.addEventListener('click', ()=> openStudyGuide(null, null, null));
+  studyGuideFromPauseBtn.addEventListener('click', ()=> openStudyGuide(null, null, null));
+
+  // ---------- manual / dev guide ----------
+  manualBtn.addEventListener('click', ()=> manualModal.classList.add('active'));
+  manualClose.addEventListener('click', ()=> manualModal.classList.remove('active'));
+  manualFromPauseBtn.addEventListener('click', ()=> manualModal.classList.add('active'));
+  courseListBtnMenu.addEventListener('click', openCourseList);
+  courseListBtnGuide.addEventListener('click', openCourseList);
+
+  // ---------- summary ----------
+  let summaryMode = 'order';
+  function openSummary(){
+    summaryModal.classList.add('active');
+    const correctCount = sessionLog.filter(r=>r.correct).length;
+    const hasRunnerEntries = sessionLog.some(r=>r.mode!=='practice');
+    const stageLine = hasRunnerEntries ? ` · reached Stage ${currentStages()[stageIndex].roman}` : '';
+    summaryStats.textContent = `${correctCount}/${sessionLog.length} correct overall${stageLine}`;
+    renderSummary();
+  }
+  function renderSummary(){
+    if(sessionLog.length===0){
+      summaryBody.innerHTML = `<p class="p-desc">No questions answered yet this session.</p>`;
+      return;
+    }
+    function rowHTML(r){
+      const meta = TOPICS[r.topic];
+      const stageLabel = r.stage ? ` · Stage ${r.stage}` : (r.mode==='practice' ? ' · Practice' : '');
+      return `<div class="sum-row">
+        <div class="sr-top"><span style="color:${meta.color}">${iconHTML(meta.icon,13)} ${meta.label}${stageLabel}</span>
+        <span class="sr-verdict ${r.correct?'verdict-good':'verdict-bad'}">${r.correct?'Correct':'Wrong'}</span></div>
+        <div class="sr-q">${r.prompt}</div>
+        <div class="sr-ans">Your answer: ${r.options[r.chosenIndex]}${r.correct?'':` · Correct: ${r.options[r.correctIndex]}`}</div>
+        <div class="sr-link" data-theme="${r.theme}" data-topic="${r.topic}" data-item="${r.itemId}">📚 View in study guide</div>
+      </div>`;
+    }
+    if(summaryMode==='order'){
+      summaryBody.innerHTML = sessionLog.map(rowHTML).join('');
+    } else {
+      let out = '';
+      Object.keys(TOPICS).forEach(t=>{
+        const rows = sessionLog.filter(r=>r.topic===t);
+        if(!rows.length) return;
+        out += `<div class="sum-group-title" style="color:${TOPICS[t].color}">${iconHTML(TOPICS[t].icon,15)} ${TOPICS[t].label}</div>`;
+        out += rows.map(rowHTML).join('');
+      });
+      summaryBody.innerHTML = out;
+    }
+    summaryBody.querySelectorAll('.sr-link').forEach(link=>{
+      link.addEventListener('click', ()=>{
+        summaryModal.classList.remove('active');
+        openStudyGuide(link.dataset.theme, link.dataset.topic, link.dataset.item);
+      });
+    });
+  }
+  sumTabOrder.addEventListener('click', ()=>{ summaryMode='order'; sumTabOrder.classList.add('active'); sumTabTopic.classList.remove('active'); renderSummary(); });
+  sumTabTopic.addEventListener('click', ()=>{ summaryMode='topic'; sumTabTopic.classList.add('active'); sumTabOrder.classList.remove('active'); renderSummary(); });
+  summaryClose.addEventListener('click', ()=> summaryModal.classList.remove('active'));
+  viewSummaryBtn.addEventListener('click', openSummary);
+
+  // ---------- Group Race (Firebase Realtime Database) ----------
+  const mpModeCard = document.getElementById('mpModeCard');
+  const mpSetupView = document.getElementById('mpSetupView');
+  const mpNameInput = document.getElementById('mpNameInput');
+  const mpThemeGrid = document.getElementById('mpThemeGrid');
+  const mpBackBtn = document.getElementById('mpBackBtn');
+  const mpHostBtn = document.getElementById('mpHostBtn');
+  const mpJoinBtn = document.getElementById('mpJoinBtn');
+  const mpJoinEntryView = document.getElementById('mpJoinEntryView');
+  const mpCodeInput = document.getElementById('mpCodeInput');
+  const mpJoinBackBtn = document.getElementById('mpJoinBackBtn');
+  const mpJoinConfirmBtn = document.getElementById('mpJoinConfirmBtn');
+  const mpJoinError = document.getElementById('mpJoinError');
+  const mpWaitView = document.getElementById('mpWaitView');
+  const mpWaitTitle = document.getElementById('mpWaitTitle');
+  const mpRoomCodeDisplay = document.getElementById('mpRoomCodeDisplay');
+  const mpWaitStatus = document.getElementById('mpWaitStatus');
+  const mpCancelBtn = document.getElementById('mpCancelBtn');
+  const mpStartRaceBtn = document.getElementById('mpStartRaceBtn');
+  const mpCountdownOverlay = document.getElementById('mpCountdownOverlay');
+  const mpCountdownText = document.getElementById('mpCountdownText');
+  const mpOpponentPanel = document.getElementById('mpOpponentPanel');
+  const mpLeaderboardPanel = document.getElementById('mpLeaderboardPanel');
+  const mpRosterList = document.getElementById('mpRosterList');
+  const mpEliminationToast = document.getElementById('mpEliminationToast');
+
+  let mp = {
+    active:false, roomCode:null, playerId:null, isHost:false,
+    roster:{}, knownDone:new Set(), myName:'Player', finished:false,
+    roomListenerRef:null, countdownStarted:false, theme:'cancer', selectedTheme:'cancer',
+  };
+  function renderMpThemeGrid(){
+    mpThemeGrid.innerHTML = RUNNABLE_THEMES.map(id=>{
+      const t = THEMES[id];
+      const active = id===mp.selectedTheme;
+      return `<button class="pick-card" data-th="${id}" style="border-color:${active?'var(--membrane)':'var(--panel-line)'};padding:10px;text-align:center;">
+        <span class="cc-icon" style="font-size:20px;">${iconHTML(t.icon,20)}</span><span class="cc-name" style="font-size:12.5px;">${t.label}</span>
+      </button>`;
+    }).join('');
+    mpThemeGrid.querySelectorAll('[data-th]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ mp.selectedTheme = btn.dataset.th; renderMpThemeGrid(); });
+    });
+  }
+  function randCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = ''; for(let i=0;i<5;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+  function randId(){ return 'p' + Math.random().toString(36).slice(2,10); }
+
+  mpModeCard.addEventListener('click', async ()=>{
+    cancerPickView.style.display = 'none';
+    mpSetupView.style.display = 'block';
+    renderMpThemeGrid();
+    // Firebase loads in the background from page load — by the time
+    // someone has clicked into Group Race it's almost always already
+    // settled one way or the other, but await it just in case this fires
+    // fast, then bounce back out with a clear message if it never connected.
+    if(!firebaseReady) await firebaseInitPromise.catch(()=>{});
+    if(!firebaseReady){
+      toastCustom('Group Race needs an internet connection to reach the race server, and it couldn\u2019t connect (or this network is blocking it). Solo Runner, Study & Practice, and Custom run all work fully offline.');
+      mpSetupView.style.display = 'none';
+      cancerPickView.style.display = 'block';
+    }
+  });
+  mpBackBtn.addEventListener('click', ()=>{
+    mpSetupView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+  });
+  mpJoinBtn.addEventListener('click', ()=>{
+    mpSetupView.style.display = 'none';
+    mpJoinEntryView.style.display = 'block';
+    mpJoinError.style.display = 'none';
+  });
+  mpJoinBackBtn.addEventListener('click', ()=>{
+    mpJoinEntryView.style.display = 'none';
+    mpSetupView.style.display = 'block';
+  });
+
+  // Guards against the classic "double click on a slow network" bug: without
+  // this, a second click (or a second 'click' event firing for any reason)
+  // before the first `set()` resolves would generate a fresh randId() and
+  // write a second, duplicate player into the room under a different id —
+  // this is what caused one real join to show up as several racers.
+  mpHostBtn.addEventListener('click', async ()=>{
+    if(mpHostBtn.disabled) return;
+    if(!firebaseReady){ toastCustom('Group Race isn\u2019t connected right now — check your internet connection and try again.'); return; }
+    mpHostBtn.disabled = true;
+    try{
+      const name = mpNameInput.value.trim() || 'Player 1';
+      mp.myName = name; mp.playerId = randId(); mp.isHost = true; mp.finished = false;
+      mp.theme = mp.selectedTheme;
+      const code = randCode();
+      mp.roomCode = code;
+      await set(ref(fbdb, `rooms/${code}`), {
+        status:'waiting', hostId: mp.playerId, hostName: name, createdAt: Date.now(), winner: null, theme: mp.theme,
+      });
+      await set(ref(fbdb, `rooms/${code}/players/${mp.playerId}`), {
+        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, done:false, finishedWin:false,
+      });
+      mpSetupView.style.display = 'none';
+      mpWaitView.style.display = 'block';
+      mpWaitTitle.textContent = 'Waiting for racers…';
+      mpRoomCodeDisplay.textContent = code;
+      mpStartRaceBtn.style.display = 'none';
+      mpAttachRoomListener();
+    } finally {
+      mpHostBtn.disabled = false;
+    }
+  });
+
+  mpJoinConfirmBtn.addEventListener('click', async ()=>{
+    if(mpJoinConfirmBtn.disabled) return;
+    if(!firebaseReady){ mpJoinError.textContent = 'Not connected — check your internet connection and try again.'; mpJoinError.style.display='block'; return; }
+    mpJoinConfirmBtn.disabled = true;
+    try{
+      const code = mpCodeInput.value.trim().toUpperCase();
+      const name = mpNameInput.value.trim() || 'Player';
+      mpJoinError.style.display = 'none';
+      if(!code || code.length!==5){ mpJoinError.textContent = 'Enter the 5-character room code.'; mpJoinError.style.display='block'; return; }
+      const snap = await get(ref(fbdb, `rooms/${code}`));
+      const room = snap.val();
+      if(!room){ mpJoinError.textContent = "That room code doesn't exist."; mpJoinError.style.display='block'; return; }
+      if(room.status!=='waiting'){ mpJoinError.textContent = 'That race has already started or finished.'; mpJoinError.style.display='block'; return; }
+      mp.myName = name; mp.playerId = randId(); mp.isHost = false; mp.roomCode = code; mp.finished = false;
+      mp.theme = room.theme || 'cancer';
+      await set(ref(fbdb, `rooms/${code}/players/${mp.playerId}`), {
+        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, done:false, finishedWin:false,
+      });
+      mpJoinEntryView.style.display = 'none';
+      mpWaitView.style.display = 'block';
+      mpWaitTitle.textContent = 'Joined!';
+      mpRoomCodeDisplay.textContent = code;
+      mpStartRaceBtn.style.display = 'none';
+      mpAttachRoomListener();
+    } finally {
+      mpJoinConfirmBtn.disabled = false;
+    }
+  });
+
+  mpStartRaceBtn.addEventListener('click', ()=>{
+    if(!mp.isHost || !mp.roomCode) return;
+    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}`), { status:'countdown', countdownAt: Date.now() + 3500 });
+  });
+
+  mpCancelBtn.addEventListener('click', async ()=>{
+    if(mp.isHost && mp.roomCode){
+      await remove(ref(fbdb, `rooms/${mp.roomCode}`));
+    } else if(mp.roomCode && mp.playerId){
+      await remove(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`));
+    }
+    mpTeardown();
+    mpWaitView.style.display = 'none';
+    cancerPickView.style.display = 'block';
+  });
+
+  function mpAttachRoomListener(){
+    const roomRef = ref(fbdb, `rooms/${mp.roomCode}`);
+    mp.roomListenerRef = roomRef;
+    onValue(roomRef, (snapshot)=>{
+      const room = snapshot.val();
+      if(!room) return; // room was removed (host cancelled, etc.)
+      console.log('[GroupRace]', mp.isHost?'HOST':'GUEST', 'room update — status:', room.status, room);
+      const roster = room.players || {};
+      mp.roster = roster; // everyone, including me
+      const others = Object.keys(roster).filter(pid=>pid!==mp.playerId);
+
+      if(mpWaitView.style.display==='block' && !mp.active){
+        mpWaitStatus.textContent = mp.isHost
+          ? 'Share this code with your friends, then start whenever you like.'
+          : 'Waiting for the host to start the race…';
+        renderRosterList(roster);
+        if(mp.isHost && others.length>=1) mpStartRaceBtn.style.display = 'inline-block';
+      }
+
+      if(room.status==='countdown' && !mp.countdownStarted){
+        mp.countdownStarted = true;
+        mpRunCountdown(room.countdownAt);
+      }
+
+      if(mp.active){
+        mpRenderLeaderboard(roster);
+        mpCheckEliminations(roster);
+      }
+
+      // While my own race has ended but the match isn't resolved yet, keep
+      // the live comparison on screen up to date as others progress.
+      if(mp.active && screenState==='over' && !mp.finished){
+        mpRenderWaitingResult(roster);
+      }
+
+      if(!room.finished && room.status!=='finished'){
+        mpCheckResolution(room);
+      }
+      if(room.status==='finished' && !mp.finished){
+        mp.finished = true;
+        showMpResult(room);
+      }
+    });
+  }
+  function renderRosterList(roster){
+    const names = Object.entries(roster);
+    mpRosterList.innerHTML = names.length
+      ? names.map(([pid,p])=>`<div class="roster-row${pid===mp.playerId?' me':''}">${p.name}${pid===mp.playerId?' (you)':''}</div>`).join('')
+      : `<div class="roster-row">Just you so far…</div>`;
+  }
+  function mpScore(p){
+    return (p.correctCount||0)*GAME_CONFIG.scoreCorrectWeight - (p.incorrectCount||0)*GAME_CONFIG.scoreIncorrectWeight + (p.glucose||0)*GAME_CONFIG.scoreLifeWeight + (p.stageIndex||0)*GAME_CONFIG.stageWeight;
+  }
+  function mpRankedRoster(roster){
+    return Object.entries(roster).map(([pid,p])=>({ pid, ...p, score:mpScore(p) })).sort((a,b)=>b.score-a.score);
+  }
+  function mpRenderLeaderboard(roster){
+    const ranked = mpRankedRoster(roster);
+    mpLeaderboardPanel.innerHTML = ranked.map((p,i)=>{
+      const isMe = p.pid===mp.playerId;
+      const status = p.done ? '💀' : (p.finishedWin ? '🏆' : `S${p.stageRoman||'I'}`);
+      return `<div class="lb-row${isMe?' me':''}"><span><span class="lb-rank">#${i+1}</span>${p.name}${isMe?' (you)':''}</span><span>${status} · ${p.score}</span></div>`;
+    }).join('');
+  }
+  function mpCheckEliminations(roster){
+    Object.entries(roster).forEach(([pid,p])=>{
+      if(pid===mp.playerId) return; // don't toast your own elimination — you already see your own screen change
+      if(p.done && !mp.knownDone.has(pid)){
+        mp.knownDone.add(pid);
+        mpShowEliminationToast(`💀 ${p.name} is out!`);
+      }
+    });
+  }
+  function mpShowEliminationToast(text){
+    mpEliminationToast.textContent = text;
+    mpEliminationToast.classList.add('show');
+    clearTimeout(mp._toastTimer);
+    mp._toastTimer = setTimeout(()=>mpEliminationToast.classList.remove('show'), 2600);
+  }
+  function mpRenderWaitingResult(roster){
+    const others = Object.entries(roster).filter(([pid])=>pid!==mp.playerId);
+    const allOthersDone = others.length>0 && others.every(([pid,p])=>p.done);
+    mpSetOverButtons('waiting');
+    overTitle.textContent = "You're done";
+    const myScore = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex });
+    if(!allOthersDone){
+      const stillRacing = others.filter(([pid,p])=>!p.done).map(([pid,p])=>p.name).join(', ') || 'others';
+      overText.innerHTML = `Stage ${STAGES[currentCancerId][stageIndex].roman} · ${myCorrectCount}✓/${myIncorrectCount}✗ · score <b>${myScore}</b> — still waiting on <b>${stillRacing}</b>. This updates automatically.`;
+    } else {
+      overText.innerHTML = `Your score: <b>${myScore}</b>. Everyone's finished — working out the result…`;
+    }
+  }
+  function mpRunCountdown(targetAt){
+    mpWaitView.style.display = 'none';
+    landingScreen.classList.remove('active');
+    mpCountdownOverlay.classList.add('active');
+    function tick(){
+      const remain = targetAt - Date.now();
+      if(remain <= 250){
+        mpCountdownText.textContent = 'GO!';
+        setTimeout(()=>{
+          mpCountdownOverlay.classList.remove('active');
+          mpBeginRace();
+        }, 300);
+        return;
+      }
+      mpCountdownText.textContent = String(Math.ceil(remain/1000));
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+  function mpBeginRace(){
+    mp.active = true;
+    currentCancerId = mp.theme || 'cancer';
+    resetRunState();
+    stageProgress = {};
+    Object.keys(STAGES[currentCancerId][0].requirements).forEach(t=>stageProgress[t]=0);
+    mpOpponentPanel.style.display = 'block';
+    mpLeaderboardPanel.innerHTML = '';
+    updateHUD();
+    resumeIntoRunning();
+  }
+  function mpSyncMyState(){
+    if(!mp.active || !mp.roomCode || !mp.playerId) return;
+    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
+      glucose, stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
+      correctCount: myCorrectCount, incorrectCount: myIncorrectCount,
+    }).catch(()=>{});
+  }
+  // Called when my own race ends for ANY reason — reached the last stage,
+  // ran out of life, or manually ended. All three just mean "I'm done";
+  // the match itself is decided by score once EVERY racer is done (see
+  // mpCheckResolution) — reaching the last stage doesn't auto-win anymore.
+  function mpMarkDone(reason){
+    if(!mp.roomCode || !mp.playerId) return;
+    screenState = 'over';
+    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
+      done:true, doneReason:reason, finishedWin: reason==='finished',
+      glucose: Math.max(0,glucose), stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
+      correctCount: myCorrectCount, incorrectCount: myIncorrectCount,
+    });
+    get(ref(fbdb, `rooms/${mp.roomCode}`)).then(snap=>{
+      const room = snap.val();
+      if(room) mpRenderWaitingResult(room.players||{});
+    });
+    showScreen('over');
+    get(ref(fbdb, `rooms/${mp.roomCode}`)).then(snap=>{
+      const room = snap.val();
+      if(room) mpCheckResolution(room);
+    });
+  }
+  // Resolves the match once EVERY racer is done. Score = correct*50 -
+  // incorrect*35 + life*1 (see GAME_CONFIG) — highest score wins; if the
+  // top score is shared by more than one racer, it's a draw.
+  function mpCheckResolution(room){
+    if(!room || room.winner) return;
+    const roster = room.players || {};
+    const ids = Object.keys(roster);
+    if(ids.length < 2) return; // need at least 2 racers for a result
+    if(!ids.every(pid=>roster[pid].done)) return; // still waiting on someone
+    const ranked = mpRankedRoster(roster);
+    const topScore = ranked[0].score;
+    const topTied = ranked.filter(p=>p.score===topScore);
+    const winner = topTied.length>1 ? 'draw' : topTied[0].pid;
+    runTransaction(ref(fbdb, `rooms/${mp.roomCode}/winner`), current => current===null ? winner : current)
+      .then(()=> fbUpdate(ref(fbdb, `rooms/${mp.roomCode}`), { status:'finished' }));
+  }
+  function showMpResult(room){
+    screenState = 'over';
+    mpSetOverButtons('final');
+    const winner = room.winner;
+    const ranked = mpRankedRoster(room.players || {});
+    const medals = ['🥇','🥈','🥉'];
+    const lines = ranked.map((p,i)=>{
+      const medal = medals[i] || `#${i+1}`;
+      const isMe = p.pid===mp.playerId;
+      return `${medal} ${p.name}${isMe?' (you)':''} — Stage ${p.stageRoman} · ${p.correctCount||0}✓/${p.incorrectCount||0}✗ · score ${p.score}`;
+    }).join('<br>');
+    if(winner==='draw'){
+      overTitle.textContent = 'Draw at the top';
+      overText.innerHTML = `Tied for first place.<br><br><span style="color:var(--hud-dim);font-size:12px;">${lines}</span>`;
+    } else if(winner===mp.playerId){
+      overTitle.textContent = '🏆 You win!';
+      overText.innerHTML = `You topped the leaderboard.<br><br><span style="color:var(--hud-dim);font-size:12px;">${lines}</span>`;
+    } else {
+      const winnerName = (room.players[winner]||{}).name || 'Someone else';
+      overTitle.textContent = 'Race over';
+      overText.innerHTML = `<b>${winnerName}</b> topped the leaderboard.<br><br><span style="color:var(--hud-dim);font-size:12px;">${lines}</span>`;
+    }
+    showScreen('over');
+  }
+  function mpTeardown(){
+    if(mp.roomListenerRef){ off(mp.roomListenerRef); }
+    mp = { active:false, roomCode:null, playerId:null, isHost:false, roster:{}, knownDone:new Set(),
+      myName:'Player', finished:false, roomListenerRef:null, countdownStarted:false, theme:'cancer', selectedTheme:'cancer' };
+    mpOpponentPanel.style.display = 'none';
+    mpSetOverButtons('solo');
+  }
+
+  // ---------- init ----------
+  const GAME_VERSION = '2026-08-28-group1'; // bump this string whenever you send friends a new copy of the file
+  console.log('[Runner Game] version', GAME_VERSION);
+  manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
+  buildCancerGrid();
+  drawVessel();
+  drawPlayer();
+</script>
+</body>
+</html>

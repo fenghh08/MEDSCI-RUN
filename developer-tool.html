@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Runner Game — Contribute Content</title>
+<!-- Live game content (themes, topics, items, courses, ...) — the same file
+     the game itself loads. Everything below reads from window.RUNNER_DATA,
+     so this form always reflects what's actually in the game — no manual
+     re-syncing needed when content is added. -->
+<script src="game-data.js"></script>
+<style>
+  :root{
+    --bg-0:#0d0308; --bg-1:#1c0710; --panel:#150409; --panel-line:rgba(255,93,143,.22);
+    --membrane:#ff5d8f; --hud-ink:#ffe9ef; --hud-dim:#c98a9c; --danger:#ff3b5c; --good:#3ee6b8;
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+    --display:'Georgia','Iowan Old Style',serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{ margin:0; background:radial-gradient(ellipse at 50% 0%, var(--bg-1), var(--bg-0) 70%);
+    color:var(--hud-ink); font-family:var(--mono); min-height:100vh; }
+  #wrap{ max-width:1150px; margin:0 auto; padding:24px 18px 60px; }
+  h1{ font-family:var(--display); font-weight:400; font-style:italic; font-size:27px; margin:0 0 4px; }
+  .subtitle{ color:var(--hud-dim); font-size:12.5px; margin:0 0 18px; line-height:1.6; max-width:760px; }
+  .subtitle b{ color:var(--hud-ink); }
+
+  .intro-card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+  .intro-card h3{ font-family:var(--display); font-style:italic; font-weight:400; font-size:16px; margin:0 0 8px; }
+  .intro-card ol{ margin:0; padding-left:20px; font-size:12.5px; line-height:1.7; color:var(--hud-ink); }
+  .intro-card li b{ color:var(--membrane); }
+
+  .name-card{ background:var(--panel); border:1px solid var(--membrane); border-radius:12px; padding:14px 18px; margin-bottom:20px; }
+  .name-card label{ display:block; font-size:11.5px; font-weight:700; margin-bottom:4px; }
+  .name-card .fl-help{ display:block; font-size:10.5px; color:var(--hud-dim); margin-bottom:8px; }
+  .name-card input{ width:100%; max-width:320px; font-family:var(--mono); font-size:14px; background:var(--bg-1);
+    color:var(--hud-ink); border:1px solid var(--panel-line); border-radius:8px; padding:9px 11px; }
+  .name-card input:focus{ outline:none; border-color:var(--membrane); }
+
+  .tabs{ display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+  .tab{ font-family:var(--mono); font-size:13px; padding:9px 18px; border-radius:20px;
+    border:1px solid var(--panel-line); background:var(--panel); color:var(--hud-dim); cursor:pointer; }
+  .tab.active{ background:var(--membrane); color:#1a0508; border-color:var(--membrane); font-weight:700; }
+
+  .layout{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+  @media (max-width:880px){ .layout{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:14px; padding:20px; }
+  .card h2{ font-family:var(--display); font-style:italic; font-weight:400; font-size:19px; margin:0 0 4px; }
+  .card .card-sub{ color:var(--hud-dim); font-size:11.5px; margin:0 0 16px; line-height:1.5; }
+
+  label.field{ display:block; margin-bottom:14px; }
+  label.field .fl-label{ display:block; font-size:11.5px; font-weight:700; letter-spacing:.03em; margin-bottom:3px; color:var(--hud-ink); }
+  label.field .fl-help{ display:block; font-size:10.5px; color:var(--hud-dim); margin-bottom:6px; line-height:1.4; }
+  input[type=text], input[type=url], textarea, select{
+    width:100%; font-family:var(--mono); font-size:13px; background:var(--bg-1); color:var(--hud-ink);
+    border:1px solid var(--panel-line); border-radius:8px; padding:8px 10px; }
+  textarea{ resize:vertical; min-height:56px; }
+  input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--membrane); }
+  .row2{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+  .icon-row{ display:flex; gap:6px; align-items:center; }
+  .icon-row input{ width:70px; text-align:center; font-size:18px; }
+  .emoji-pick{ font-size:16px; background:var(--bg-1); border:1px solid var(--panel-line); border-radius:6px;
+    padding:4px 7px; cursor:pointer; }
+  .emoji-pick:hover{ border-color:var(--membrane); }
+  .id-preview{ font-size:11px; color:var(--good); background:var(--bg-1); border:1px dashed var(--panel-line);
+    border-radius:6px; padding:6px 9px; margin-top:4px; }
+  .new-toggle{ font-size:11px; color:var(--membrane); cursor:pointer; text-decoration:underline; margin:-8px 0 12px; display:inline-block; }
+  .new-block{ display:none; background:var(--bg-1); border:1px dashed var(--panel-line); border-radius:8px; padding:10px; margin:-4px 0 14px; }
+  .new-block.show{ display:block; }
+
+  .list-editor .list-row{ display:flex; gap:6px; margin-bottom:6px; }
+  .list-editor .list-row input, .list-editor .list-row textarea{ flex:1; }
+  .list-editor .list-row.ref-row input.ref-label{ flex:2; }
+  .list-editor .list-row.ref-row input.ref-url{ flex:2; }
+  .list-editor .list-row.img-row input.img-cap{ flex:2; }
+  .list-editor .list-row.img-row input.img-file{ flex:2; }
+  .list-editor .list-row.opt-row{ align-items:center; }
+  .list-editor .list-row.opt-row input[type=radio]{ flex:none; }
+  .list-remove, .list-add{ font-family:var(--mono); font-size:12px; border-radius:6px; cursor:pointer; }
+  .list-remove{ background:rgba(255,59,92,.14); border:1px solid rgba(255,59,92,.4); color:var(--danger); width:30px; flex:none; }
+  .list-add{ background:transparent; border:1px dashed var(--panel-line); color:var(--hud-dim); padding:6px 10px; margin-top:2px; }
+  .list-add:hover{ border-color:var(--membrane); color:var(--hud-ink); }
+
+  pre.code-out{ background:var(--bg-1); border:1px solid var(--panel-line); border-radius:10px; padding:12px;
+    font-size:10.5px; line-height:1.55; overflow-x:auto; white-space:pre; color:var(--hud-ink); margin:0 0 12px; max-height:360px; overflow-y:auto; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  button.primary{ font-family:var(--mono); background:linear-gradient(135deg,var(--membrane),#c22a5c);
+    color:#1a0508; font-weight:700; border:none; padding:10px 20px; border-radius:24px; font-size:12.5px; cursor:pointer; }
+  button.secondary{ font-family:var(--mono); background:transparent; color:var(--hud-ink);
+    border:1px solid rgba(255,255,255,.25); padding:9px 18px; border-radius:24px; font-size:12.5px; cursor:pointer; }
+  button.secondary:hover, button.primary:hover{ filter:brightness(1.08); }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  .req{ color:var(--danger); }
+
+  .files-needed{ background:rgba(255,171,77,.12); border:1px solid rgba(255,171,77,.4); color:#ffab4d;
+    border-radius:8px; padding:8px 10px; font-size:11px; margin-bottom:12px; line-height:1.5; display:none; }
+  .files-needed.show{ display:block; }
+
+  .batch{ margin-top:26px; }
+  .batch h2{ font-family:var(--display); font-style:italic; font-weight:400; font-size:20px; margin:0 0 4px; }
+  .batch .card-sub{ color:var(--hud-dim); font-size:11.5px; margin:0 0 14px; }
+  .batch-item{ background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:10px 14px;
+    margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .batch-item .bi-label{ font-size:12.5px; }
+  .batch-item .bi-label b{ color:var(--membrane); }
+  .batch-empty{ color:var(--hud-dim); font-size:12px; font-style:italic; }
+  .struct-theme{ font-family:var(--display); font-style:italic; font-size:17px; color:var(--hud-ink); margin:16px 0 6px; display:flex; align-items:baseline; gap:8px; }
+  .struct-theme:first-child{ margin-top:0; }
+  .struct-topic{ font-size:12.5px; font-weight:700; color:var(--membrane); margin:10px 0 4px 10px; display:flex; align-items:baseline; gap:8px; }
+  .struct-item{ font-size:12px; color:var(--hud-ink); margin:0 0 3px 22px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .struct-course{ color:var(--hud-dim); font-size:10.5px; }
+  .struct-empty{ font-size:11px; color:var(--hud-dim); font-style:italic; margin:0 0 4px 22px; }
+  .struct-counts{ font-family:var(--mono); font-size:10px; font-style:normal; color:var(--hud-dim); font-weight:400; }
+  .struct-stats{ background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:10px 14px;
+    margin-bottom:16px; font-size:11.5px; color:var(--hud-dim); display:flex; gap:18px; flex-wrap:wrap; }
+  .struct-stats b{ color:var(--hud-ink); }
+  .struct-search{ width:100%; font-family:var(--mono); font-size:13px; background:var(--bg-1); color:var(--hud-ink);
+    border:1px solid var(--panel-line); border-radius:8px; padding:8px 11px; margin-bottom:14px; }
+  .struct-search:focus{ outline:none; border-color:var(--membrane); }
+  details.struct-item-toggle{ margin:0 0 4px 22px; border-bottom:1px solid rgba(255,255,255,.05); }
+  details.struct-item-toggle summary{ font-size:12px; color:var(--hud-ink); padding:5px 0; cursor:pointer;
+    list-style:none; display:flex; align-items:center; gap:8px; }
+  details.struct-item-toggle summary::-webkit-details-marker{ display:none; }
+  details.struct-item-toggle summary::before{ content:'▸'; color:var(--hud-dim); font-size:10px; flex-shrink:0; }
+  details.struct-item-toggle[open] summary::before{ content:'▾'; }
+  details.struct-item-toggle summary:hover{ color:var(--membrane); }
+  .struct-qbadge{ font-size:9.5px; padding:1px 7px; border-radius:10px; background:rgba(255,93,143,.14); color:var(--membrane); }
+  .struct-item-detail{ margin:2px 0 12px 20px; padding:10px 12px; background:var(--bg-1); border:1px solid var(--panel-line);
+    border-radius:8px; font-size:11.5px; line-height:1.5; }
+  .struct-item-detail .p-sub{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--hud-dim); margin:8px 0 3px; }
+  .struct-item-detail .p-sub:first-child{ margin-top:0; }
+  .struct-item-detail .p-facts{ margin:0; padding-left:16px; }
+  .struct-item-detail .p-chips{ display:flex; gap:5px; flex-wrap:wrap; margin:2px 0; }
+  .struct-item-detail .p-chip{ font-size:10px; padding:2px 7px; border-radius:14px; border:1px solid var(--panel-line); color:var(--hud-dim); }
+  .struct-edit-link{ font-family:var(--mono); font-size:10.5px; background:transparent; border:1px solid var(--panel-line);
+    color:var(--membrane); border-radius:14px; padding:4px 10px; cursor:pointer; margin-top:8px; }
+  .struct-edit-link:hover{ border-color:var(--membrane); }
+  .struct-q{ background:var(--panel); border:1px solid var(--panel-line); border-radius:7px; padding:8px 10px; margin:6px 0 0; }
+  .struct-q-prompt{ font-size:11.5px; color:var(--hud-ink); margin-bottom:5px; }
+  .struct-q-opt{ font-size:10.5px; color:var(--hud-dim); padding:1px 0; }
+  .struct-q-opt.correct{ color:var(--good); }
+  .struct-q-explain{ font-size:10.5px; color:var(--hud-dim); margin-top:5px; font-style:italic; }
+  .struct-pending{ font-size:10px; color:#ffab4d; font-style:italic; }
+  .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--membrane); color:#1a0508;
+    font-weight:700; font-size:12.5px; padding:9px 20px; border-radius:20px; opacity:0; pointer-events:none;
+    transition:opacity .25s; z-index:50; }
+  .toast.show{ opacity:1; }
+
+  /* ============== live preview (mirrors the real game's item-detail /
+     MCQ styling, so what you see here is what it'll actually look like) */
+  .preview-card{ background:var(--bg-1); border:1px dashed var(--panel-line); border-radius:12px; padding:16px;
+    text-align:left; margin-bottom:14px; }
+  .preview-card .p-cat{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--hud-dim); margin-bottom:2px; }
+  .preview-card .p-name{ font-family:var(--display); font-style:italic; font-size:19px; margin:0 0 8px; color:var(--hud-ink); }
+  .preview-card .p-desc{ font-size:12.5px; line-height:1.5; margin:0 0 10px; color:var(--hud-ink); }
+  .preview-card .p-sub{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--hud-dim); margin:10px 0 4px; }
+  .preview-card .p-facts{ margin:0; padding-left:16px; font-size:11.5px; line-height:1.55; color:var(--hud-ink); }
+  .preview-card .p-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .preview-card .p-chip{ font-size:10.5px; padding:2px 8px; border-radius:20px; border:1px solid var(--panel-line); color:var(--hud-dim); }
+  .preview-card .p-course{ font-size:11px; color:var(--hud-dim); margin:-4px 0 8px; }
+  .preview-card .img-strip{ display:flex; gap:8px; overflow-x:auto; margin-bottom:10px; }
+  .preview-card .img-placeholder{ width:120px; height:86px; flex-shrink:0; border:1px dashed var(--panel-line); border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:9.5px; color:var(--hud-dim); text-align:center; padding:6px; }
+  .preview-label{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--good); margin:0 0 8px; }
+  .preview-mcq-cat{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; }
+  .preview-mcq-prompt{ font-size:13.5px; line-height:1.4; margin:0 0 10px; color:var(--hud-ink); }
+  .preview-mcq-option{ display:block; width:100%; text-align:left; font-family:var(--mono); font-size:11.5px;
+    background:var(--panel); border:1px solid var(--panel-line); color:var(--hud-ink); border-radius:7px;
+    padding:7px 10px; margin-bottom:6px; }
+  .preview-mcq-option.correct{ border-color:var(--good); background:rgba(62,230,184,.14); color:var(--good); }
+
+  /* ============== team queue (shared across everyone via Firebase) */
+  .sync-banner{ font-size:11px; padding:6px 10px; border-radius:8px; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .sync-banner.ok{ background:rgba(62,230,184,.12); color:var(--good); border:1px solid rgba(62,230,184,.3); }
+  .sync-banner.off{ background:rgba(255,171,77,.12); color:#ffab4d; border:1px solid rgba(255,171,77,.35); }
+  .queue-item{ background:var(--panel); border:1px solid var(--panel-line); border-radius:10px; padding:10px 14px;
+    margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .queue-item .qi-label{ font-size:12.5px; }
+  .queue-item .qi-label b{ color:var(--membrane); }
+  .queue-item .qi-meta{ font-size:10.5px; color:var(--hud-dim); margin-top:2px; }
+  .edit-toggle{ display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:12px; color:var(--hud-ink); }
+  .edit-toggle input{ width:15px; height:15px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>Contribute Content</h1>
+  <p class="subtitle">Fill in the fields below — no code needed. This generates <b>ready-to-paste code</b> in the exact format the Runner Game uses. When you're done, copy or download your batch and send it to Eason.</p>
+
+  <div class="intro-card">
+    <h3>How this works</h3>
+    <ol>
+      <li>Type your name below (so Eason knows who submitted what).</li>
+      <li>Pick a tab: <b>New Item</b> (a study guide entry), <b>New Question</b>, or <b>New Theme</b> (a whole new subject area).</li>
+      <li>Fill in the fields. A code preview updates live on the right — you don't need to understand it, just check the fields look right.</li>
+      <li>Click <b>"Add to batch"</b>. Repeat for as many items/questions as you want to contribute.</li>
+      <li>When you're done, <b>"Copy entire batch"</b> or <b>"Download as .txt"</b> and send it to Eason (with any image/icon files you mentioned, named exactly as shown).</li>
+    </ol>
+  </div>
+
+  <div class="name-card">
+    <label for="contributorName">Your name</label>
+    <span class="fl-help">Used only to credit you in the batch you send — doesn't affect any IDs or filenames.</span>
+    <input type="text" id="contributorName" placeholder="e.g. Priya">
+  </div>
+
+  <div id="syncBanner" class="sync-banner off">⏳ Connecting to the shared queue…</div>
+
+  <div class="tabs">
+    <button class="tab" id="tabStructure">📖 Existing structure</button>
+    <button class="tab active" id="tabItem">📄 New item</button>
+    <button class="tab" id="tabQuestion">❓ New question</button>
+    <button class="tab" id="tabCourse">📚 New theme</button>
+  </div>
+
+  <!-- ================= STRUCTURE BROWSER ================= -->
+  <div id="structureSection" style="display:none;">
+    <div class="card">
+      <h2>What's already in the game</h2>
+      <p class="card-sub">Theme → topic → item — click any item to expand its full description, mechanism, tags, and every question tied to it. This is generated live from game-data.js, so it's always up to date. Anything shown as "pending" was added this session and hasn't been merged into game-data.js yet, so its full detail isn't available here until it has.</p>
+      <div class="struct-stats" id="structStats"></div>
+      <input type="text" class="struct-search" id="structSearchInput" placeholder="🔍 Search items and questions by name, description, or #tag…">
+      <div id="structureList"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h2>Courses &amp; classes</h2>
+      <p class="card-sub">The university courses items/questions can be tagged with. Pick from these in the forms, or add a new course/class right there if what you need isn't listed yet.</p>
+      <div id="courseStructureList"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h2>Hashtags in use</h2>
+      <p class="card-sub">Every hashtag already used anywhere in the game, with how many items/questions carry it. Reuse one of these in the forms below (they show up as suggestions as you type) instead of typing a near-duplicate like "Leukemia" vs "leukemias".</p>
+      <div id="hashtagStructureList"></div>
+    </div>
+  </div>
+
+  <!-- Shared autocomplete suggestions for every hashtag field in the forms
+       below — populated live from what's already in the game. -->
+  <datalist id="knownHashtagsList"></datalist>
+
+  <!-- ================= ITEM FORM ================= -->
+  <div id="itemSection">
+    <div class="layout">
+      <div class="card">
+        <h2>Study guide item</h2>
+        <p class="card-sub">One "item" = one drug, mutation, checkpoint, technique, or concept that shows up in the study guide.</p>
+
+        <div class="edit-toggle">
+          <input type="checkbox" id="i_editModeToggle">
+          <label for="i_editModeToggle">✏️ I'm editing an existing item, not adding a new one</label>
+        </div>
+        <div class="new-block" id="i_editPickerBlock" style="margin-bottom:14px;">
+          <label class="field" style="margin-bottom:0;">
+            <span class="fl-label">Which item?</span>
+            <select id="i_editItemSelect"></select>
+          </label>
+          <button type="button" class="struct-edit-link" id="i_addQuestionQuickLink" style="display:none;margin-top:10px;">➕ Skip editing — just add a question to this item instead</button>
+        </div>
+
+        <div class="row2">
+          <label class="field">
+            <span class="fl-label">Theme <span class="req">*</span></span>
+            <select id="i_theme"></select>
+          </label>
+          <label class="field">
+            <span class="fl-label">Topic <span class="req">*</span></span>
+            <select id="i_topic"></select>
+          </label>
+        </div>
+        <span class="new-toggle" id="i_newTopicToggle">+ This needs a brand new topic</span>
+        <div class="new-block" id="i_newTopicBlock">
+          <div class="row2">
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">New topic name</span>
+              <input type="text" id="i_newTopicLabel" placeholder="e.g. Diagnostics">
+            </label>
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Icon</span>
+              <input type="text" id="i_newTopicIcon" value="📋" maxlength="4">
+            </label>
+          </div>
+          <span class="fl-help">Topics are shared across every course, so pick a name that isn't already used for something else.</span>
+        </div>
+
+        <label class="field">
+          <span class="fl-label">Item name <span class="req">*</span></span>
+          <input type="text" id="i_label" placeholder="e.g. Ibrutinib">
+        </label>
+        <div class="id-preview" id="i_idPreview">id: —</div>
+
+        <label class="field" style="margin-top:14px;">
+          <span class="fl-label">Description <span class="req">*</span></span>
+          <span class="fl-help">One or two sentences — this is the main text on its page.</span>
+          <textarea id="i_description" placeholder="e.g. A drug that irreversibly inhibits BTK, used in CLL and mantle cell lymphoma."></textarea>
+        </label>
+        <label class="field">
+          <span class="fl-label">Mechanism</span>
+          <textarea id="i_mechanism" placeholder="How it works, in a sentence or two."></textarea>
+        </label>
+        <label class="field">
+          <span class="fl-label">Fun facts</span>
+          <div class="list-editor" id="i_funFacts"></div>
+        </label>
+        <label class="field">
+          <span class="fl-label">Hashtags</span>
+          <span class="fl-help">Which disease/sub-area this belongs to, e.g. "CLL", "Leukemia". Shown as chips.</span>
+          <div class="list-editor" id="i_hashtags"></div>
+        </label>
+        <label class="field">
+          <span class="fl-label">Course</span>
+          <span class="fl-help">The university course this belongs to (optional). Pick an existing one, or add a new one below.</span>
+          <select id="i_course"><option value="">— none —</option></select>
+        </label>
+        <span class="new-toggle" id="i_newCourseToggle">+ Add a new course</span>
+        <div class="new-block" id="i_newCourseBlock">
+          <div class="row2">
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Course code</span>
+              <input type="text" id="i_newCourseCode" placeholder="e.g. MEDS2001">
+            </label>
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Course name</span>
+              <input type="text" id="i_newCourseLabel" placeholder="e.g. Foundations of Medicine">
+            </label>
+          </div>
+        </div>
+        <label class="field">
+          <span class="fl-label">Class</span>
+          <span class="fl-help">The specific class/lecture within that course, e.g. "L14". Pick an existing one, or add a new one below.</span>
+          <select id="i_class"><option value="">— none —</option></select>
+        </label>
+        <span class="new-toggle" id="i_newClassToggle">+ Add a new class to this course</span>
+        <div class="new-block" id="i_newClassBlock">
+          <div class="row2">
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Class key</span>
+              <input type="text" id="i_newClassKey" placeholder="e.g. L16">
+            </label>
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Class name</span>
+              <input type="text" id="i_newClassLabel" placeholder="e.g. Tumor microenvironment">
+            </label>
+          </div>
+        </div>
+        <span class="new-toggle" id="i_spansToggle">+ This spans several classes — describe it in words instead</span>
+        <div class="new-block" id="i_spansBlock">
+          <label class="field" style="margin-bottom:0;">
+            <span class="fl-label">Course &amp; classes, in words</span>
+            <span class="fl-help">e.g. "MEDS3002 L9-L12 Immunology of Cancer" — used as-is instead of a single course/class pair, for content that doesn't cleanly belong to one lecture.</span>
+            <input type="text" id="i_spansText" placeholder="e.g. MEDS3002 L9-L12 Immunology of Cancer">
+          </label>
+        </div>
+        <label class="field">
+          <span class="fl-label">References</span>
+          <div class="list-editor" id="i_refs"></div>
+        </label>
+        <label class="field">
+          <span class="fl-label">Images</span>
+          <span class="fl-help">A caption and a filename for each image. Upload the actual image file to <a href="https://drive.google.com/drive/folders/1Wofvby0aQ6a169mr50jU0sYIEk-6BaG2?usp=drive_link" target="_blank" rel="noopener" style="color:var(--membrane);">this shared Drive folder</a>, named <b>exactly</b> the filename shown below (edit the filename first if you want a different one, then match the upload to it).</span>
+          <div class="list-editor" id="i_images"></div>
+        </label>
+      </div>
+
+      <div>
+        <div class="card">
+          <p class="preview-label">👁 Live preview — exactly how this looks in the real study guide</p>
+          <div class="preview-card" id="i_previewCard"></div>
+          <h2>Generated code</h2>
+          <p class="card-sub">Copy this, or click "Add to batch" to collect several before sending.</p>
+          <div class="files-needed" id="i_filesNeeded"></div>
+          <pre class="code-out" id="i_codeOut"></pre>
+          <div class="btn-row">
+            <button class="primary" id="i_addBatch">+ Add to batch</button>
+            <button class="secondary" id="i_copyOne">Copy this snippet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= QUESTION FORM ================= -->
+  <div id="questionSection" style="display:none;">
+    <div class="layout">
+      <div class="card">
+        <h2>Question</h2>
+        <p class="card-sub">A multiple-choice question players get asked when they hit this topic.</p>
+
+        <div class="row2">
+          <label class="field">
+            <span class="fl-label">Theme <span class="req">*</span></span>
+            <select id="q_theme"></select>
+          </label>
+          <label class="field">
+            <span class="fl-label">Topic <span class="req">*</span></span>
+            <select id="q_topic"></select>
+          </label>
+        </div>
+        <label class="field">
+          <span class="fl-label">Which item is this about?</span>
+          <span class="fl-help">Links "view in study guide" from this question. Pick an existing one, or type the id of a new item you're adding in the "New item" tab.</span>
+          <select id="q_itemSelect"></select>
+        </label>
+        <span class="new-toggle" id="q_customItemToggle">+ It's a new item I'm adding myself (type its id)</span>
+        <div class="new-block" id="q_customItemBlock">
+          <input type="text" id="q_customItemId" placeholder="e.g. ibrutinib-ab12 (must match the id shown in the New item tab)">
+        </div>
+
+        <label class="field" style="margin-top:14px;">
+          <span class="fl-label">Question <span class="req">*</span></span>
+          <textarea id="q_prompt" placeholder="e.g. Ibrutinib works by inhibiting which enzyme?"></textarea>
+        </label>
+        <label class="field">
+          <span class="fl-label">Answer options <span class="req">*</span></span>
+          <span class="fl-help">Mark the correct one with the radio button. Need at least 2, up to 6.</span>
+          <div class="list-editor" id="q_options"></div>
+        </label>
+        <label class="field">
+          <span class="fl-label">Explanation <span class="req">*</span></span>
+          <span class="fl-help">Shown after answering, whether right or wrong.</span>
+          <textarea id="q_explanation" placeholder="Why the correct answer is correct."></textarea>
+        </label>
+        <label class="field">
+          <span class="fl-label">Hashtags</span>
+          <div class="list-editor" id="q_hashtags"></div>
+        </label>
+        <label class="field">
+          <span class="fl-label">Course</span>
+          <span class="fl-help">Usually the same course/class as the item this question is about — only set it if this question needs a different one, e.g. because it spans several classes.</span>
+          <select id="q_course"><option value="">— none —</option></select>
+        </label>
+        <span class="new-toggle" id="q_newCourseToggle">+ Add a new course</span>
+        <div class="new-block" id="q_newCourseBlock">
+          <div class="row2">
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Course code</span>
+              <input type="text" id="q_newCourseCode" placeholder="e.g. MEDS2001">
+            </label>
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Course name</span>
+              <input type="text" id="q_newCourseLabel" placeholder="e.g. Foundations of Medicine">
+            </label>
+          </div>
+        </div>
+        <label class="field">
+          <span class="fl-label">Class</span>
+          <select id="q_class"><option value="">— none —</option></select>
+        </label>
+        <span class="new-toggle" id="q_newClassToggle">+ Add a new class to this course</span>
+        <div class="new-block" id="q_newClassBlock">
+          <div class="row2">
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Class key</span>
+              <input type="text" id="q_newClassKey" placeholder="e.g. L16">
+            </label>
+            <label class="field" style="margin-bottom:8px;">
+              <span class="fl-label">Class name</span>
+              <input type="text" id="q_newClassLabel" placeholder="e.g. Tumor microenvironment">
+            </label>
+          </div>
+        </div>
+        <span class="new-toggle" id="q_spansToggle">+ This spans several classes — describe it in words instead</span>
+        <div class="new-block" id="q_spansBlock">
+          <label class="field" style="margin-bottom:0;">
+            <span class="fl-label">Course &amp; classes, in words</span>
+            <span class="fl-help">e.g. "MEDS3002 L9-L12 Immunology of Cancer" — used as-is instead of a single course/class pair.</span>
+            <input type="text" id="q_spansText" placeholder="e.g. MEDS3002 L9-L12 Immunology of Cancer">
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <p class="preview-label">👁 Live preview — how this looks as an in-game question</p>
+          <div class="preview-card" id="q_previewCard"></div>
+          <h2>Generated code</h2>
+          <p class="card-sub">Copy this, or click "Add to batch" to collect several before sending.</p>
+          <pre class="code-out" id="q_codeOut"></pre>
+          <div class="btn-row">
+            <button class="primary" id="q_addBatch">+ Add to batch</button>
+            <button class="secondary" id="q_copyOne">Copy this snippet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= THEME FORM ================= -->
+  <div id="courseSection" style="display:none;">
+    <div class="layout">
+      <div class="card">
+        <h2>New theme / subject area</h2>
+        <p class="card-sub">Use this if you want to add a whole new subject (like "Cancer" or "Biochemistry") that isn't in the game yet. You'll still need to add topics and items into it afterwards, using the "New item" tab and picking this theme.</p>
+
+        <label class="field">
+          <span class="fl-label">Theme name <span class="req">*</span></span>
+          <input type="text" id="c_label" placeholder="e.g. Pharmacology 101">
+        </label>
+        <div class="id-preview" id="c_idPreview">id: —</div>
+        <div class="row2" style="margin-top:14px;">
+          <label class="field">
+            <span class="fl-label">Icon</span>
+            <input type="text" id="c_icon" value="📘" maxlength="4">
+          </label>
+        </div>
+        <label class="field">
+          <span class="fl-label">One-line description <span class="req">*</span></span>
+          <span class="fl-help">Shown on the course's picker card.</span>
+          <textarea id="c_blurb" placeholder="e.g. Core pharmacology concepts across drug classes."></textarea>
+        </label>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Generated code</h2>
+          <p class="card-sub">Copy this, or add it to your batch.</p>
+          <pre class="code-out" id="c_codeOut"></pre>
+          <div class="btn-row">
+            <button class="primary" id="c_addBatch">+ Add to batch</button>
+            <button class="secondary" id="c_copyOne">Copy this snippet</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TEAM QUEUE ================= -->
+  <div class="batch">
+    <h2>Team queue — synced live with everyone else</h2>
+    <p class="card-sub" id="queueSubtext">Add several items/questions/themes above — they show up here for everyone working on this, in real time. Once Eason's merged something into game-data.js, remove it here so the queue doesn't pile up.</p>
+    <div id="batchList"></div>
+    <div class="btn-row">
+      <button class="primary" id="batchCopyAll">Copy entire queue</button>
+      <button class="secondary" id="batchDownload">Download as .txt</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  /* ======================================================================
+     FIREBASE — the shared "team queue" (same project the game itself uses
+     for Group Race). Loaded with a dynamic import() inside a try/catch, not
+     a static top-level `import` — a static import is all-or-nothing, so if
+     it fails (no internet, a blocked network) it would take down this
+     ENTIRE tool, not just the sync feature. This way, a failed connection
+     only disables live sync; every form, the live preview, and a
+     local-only queue all still work fully offline.
+     ====================================================================== */
+  let fbRef, fbPush, fbSet, fbOnValue, fbRemove, fbOff;
+  let fbApp, fbdb;
+  let firebaseReady = false;
+  const firebaseConfig = {
+    apiKey: "AIzaSyBO3Ztpzg2tCTLapxdxmy-vBh0uOaEHnus",
+    authDomain: "runner-9b11b.firebaseapp.com",
+    databaseURL: "https://runner-9b11b-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "runner-9b11b",
+    storageBucket: "runner-9b11b.firebasestorage.app",
+    messagingSenderId: "1043816875668",
+    appId: "1:1043816875668:web:53bd52882fd7976da31681"
+  };
+  const syncBanner = document.getElementById('syncBanner');
+  const firebaseInitPromise = (async function initFirebase(){
+    try {
+      const appMod = await import('https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js');
+      const dbMod = await import('https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js');
+      fbApp = appMod.initializeApp(firebaseConfig);
+      fbdb = dbMod.getDatabase(fbApp);
+      fbRef = dbMod.ref; fbPush = dbMod.push; fbSet = dbMod.set;
+      fbOnValue = dbMod.onValue; fbRemove = dbMod.remove; fbOff = dbMod.off;
+      firebaseReady = true;
+      syncBanner.className = 'sync-banner ok';
+      syncBanner.textContent = '🟢 Synced — everyone sees this queue live';
+      attachQueueListener();
+    } catch(err){
+      console.warn('[Contributor] Shared queue unavailable — could not reach Firebase (no internet, or gstatic.com is blocked on this network). Everything else still works; the queue below will be local to this browser only.', err);
+      firebaseReady = false;
+      syncBanner.className = 'sync-banner off';
+      syncBanner.textContent = "🟡 Not connected — this queue is local to your browser only (not shared) until you're back online";
+      renderBatch();
+    }
+  })();
+
+  /* ======================================================================
+     Everything below is derived LIVE from window.RUNNER_DATA (game-data.js,
+     loaded in <head>) — never hand-maintained. Whenever Eason adds content
+     to game-data.js, this form picks it up automatically the next time it's
+     opened; nothing here needs to be kept in sync by hand.
+     ====================================================================== */
+  const RD = window.RUNNER_DATA;
+  if(!RD){
+    document.write('<p style="color:#ff3b5c;padding:20px;">Could not load game-data.js — make sure it sits in the same folder as this file, then reload.</p>');
+    throw new Error('window.RUNNER_DATA missing — is game-data.js next to this file?');
+  }
+
+  const KNOWN_THEMES = Object.entries(RD.THEMES).map(([id,t])=>({ id, label:t.label }));
+
+  const KNOWN_TOPICS = {};
+  Object.entries(RD.THEMES).forEach(([themeId, theme])=>{
+    Object.keys(theme.topics).forEach(topicId=>{
+      KNOWN_TOPICS[topicId] = { label:(RD.TOPICS[topicId]||{}).label || topicId, theme:themeId };
+    });
+  });
+
+  const KNOWN_ITEMS = [];
+  Object.entries(RD.THEMES).forEach(([themeId, theme])=>{
+    Object.entries(theme.topics).forEach(([topicId, topic])=>{
+      Object.entries(topic.items).forEach(([itemId, item])=>{
+        KNOWN_ITEMS.push({ id:itemId, theme:themeId, topic:topicId, label:item.label, course:item.course||'', class:item.class||'' });
+      });
+    });
+  });
+
+  // course -> { code, label, classes:{ key:{label} } } — cloned so adding a
+  // course/class from this tool (below) doesn't mutate the loaded data file.
+  const KNOWN_COURSES = {};
+  Object.entries(RD.COURSES||{}).forEach(([code, c])=>{
+    KNOWN_COURSES[code] = { code:c.code, label:c.label, classes:{ ...c.classes } };
+  });
+
+  function courseDisplayString(course, cls){
+    const c = KNOWN_COURSES[course];
+    if(!c) return '';
+    const k = c.classes[cls];
+    return k ? `${c.code} ${cls} ${k.label}` : c.code;
+  }
+
+  function slugify(s){
+    return (s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,24) || 'x';
+  }
+  function randSuffix(){
+    return Math.random().toString(36).slice(2,6);
+  }
+  function esc(s){
+    // Strip real line breaks (textareas let people press Enter, but a raw
+    // newline inside a single-quoted JS string is invalid and breaks the
+    // paste) and escape backslashes/quotes so the string stays valid JS.
+    return (s||'').replace(/\r\n|\r|\n/g,' ').replace(/\\/g,'\\\\').replace(/'/g,"\\'").trim();
+  }
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>t.classList.remove('show'), 1700);
+  }
+  function copyText(text){
+    navigator.clipboard.writeText(text).then(()=>toast('Copied!')).catch(()=>toast('Copy failed — select and copy manually'));
+  }
+
+  // ---------- contributor name (used only for attribution in the batch header/filename) ----------
+  const contributorNameEl = document.getElementById('contributorName');
+  function currentContributorName(){
+    return contributorNameEl.value.trim() || 'Anonymous';
+  }
+
+  // ---------- generic repeatable list editor ----------
+  function makeTextList(container, placeholder, onChange, initialValues, datalistId){
+    container.innerHTML = '';
+    function addRow(value){
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      // Both elements must go into ONE innerHTML assignment. A second
+      // `row.innerHTML +=` after attaching the value/listener re-parses
+      // the whole row from scratch, silently destroying the input that
+      // was just created — along with the value just set on it and the
+      // listener just attached to it. That was the actual bug: typed
+      // text was visible on screen but invisible to every read of it,
+      // because the visible input wasn't the one anything was tracking.
+      row.innerHTML = `<input type="text" placeholder="${placeholder}"${datalistId?` list="${datalistId}"`:''}><button class="list-remove" type="button">✕</button>`;
+      row.querySelector('input').value = value||'';
+      row.querySelector('input').addEventListener('input', onChange);
+      row.querySelector('.list-remove').addEventListener('click', ()=>{ row.remove(); onChange(); });
+      container.insertBefore(row, addBtn);
+    }
+    const addBtn = document.createElement('button');
+    addBtn.className = 'list-add'; addBtn.type = 'button'; addBtn.textContent = '+ Add another';
+    addBtn.addEventListener('click', ()=>{ addRow(''); onChange(); });
+    container.appendChild(addBtn);
+    if(initialValues && initialValues.length) initialValues.forEach(v=>addRow(v));
+    else addRow('');
+    container._getValues = () => [...container.querySelectorAll('.list-row input')].map(i=>i.value.trim()).filter(Boolean);
+  }
+  function makeRefList(container, onChange, initialValues){
+    container.innerHTML = '';
+    function addRow(label, url){
+      const row = document.createElement('div');
+      row.className = 'list-row ref-row';
+      row.innerHTML = `<input type="text" class="ref-label" placeholder="Label, e.g. Lecture 5 slide 12">
+        <input type="url" class="ref-url" placeholder="Link (optional)">
+        <button class="list-remove" type="button">✕</button>`;
+      row.querySelector('.ref-label').value = label||'';
+      row.querySelector('.ref-url').value = url||'';
+      row.querySelectorAll('input').forEach(i=>i.addEventListener('input', onChange));
+      row.querySelector('.list-remove').addEventListener('click', ()=>{ row.remove(); onChange(); });
+      container.insertBefore(row, addBtn);
+    }
+    const addBtn = document.createElement('button');
+    addBtn.className = 'list-add'; addBtn.type = 'button'; addBtn.textContent = '+ Add another reference';
+    addBtn.addEventListener('click', ()=>{ addRow(); onChange(); });
+    container.appendChild(addBtn);
+    if(initialValues && initialValues.length) initialValues.forEach(r=>addRow(r.label, r.url));
+    else addRow();
+    container._getValues = () => [...container.querySelectorAll('.list-row.ref-row')]
+      .map(r => ({ label:r.querySelector('.ref-label').value.trim(), url:r.querySelector('.ref-url').value.trim() }))
+      .filter(r=>r.label);
+  }
+  function makeImageList(container, onChange, initialValues){
+    container.innerHTML = '';
+    let n = 0;
+    function addRow(caption, filename){
+      n++;
+      const row = document.createElement('div');
+      row.className = 'list-row img-row';
+      row.innerHTML = `<input type="text" class="img-cap" placeholder="Caption, e.g. H&E stain, bone marrow">
+        <input type="text" class="img-file" placeholder="filename, e.g. bcrabl-x1.png">
+        <button class="list-remove" type="button">✕</button>`;
+      row.dataset.n = n;
+      row.dataset.userEdited = filename ? 'true' : 'false';
+      row.querySelector('.img-cap').value = caption||'';
+      row.querySelector('.img-file').value = filename||'';
+      row.querySelector('.img-file').addEventListener('input', ()=>{ row.dataset.userEdited = 'true'; onChange(); });
+      row.querySelector('.img-cap').addEventListener('input', onChange);
+      row.querySelector('.list-remove').addEventListener('click', ()=>{ row.remove(); onChange(); });
+      container.insertBefore(row, addBtn);
+    }
+    const addBtn = document.createElement('button');
+    addBtn.className = 'list-add'; addBtn.type = 'button'; addBtn.textContent = '+ Add another image';
+    addBtn.addEventListener('click', ()=>{ addRow(); onChange(); });
+    container.appendChild(addBtn);
+    if(initialValues && initialValues.length) initialValues.forEach(im=>addRow(im.caption, (im.url||'').replace(/^images\//,'')));
+    // itemSlug is the content-based slug (not yet the final random-suffixed
+    // id) — used only to suggest a sensible filename. Contributors can
+    // freely overwrite the suggestion; once they type their own, it's left alone.
+    container._getValues = (itemSlug) => [...container.querySelectorAll('.list-row.img-row')].map(r=>{
+      const cap = r.querySelector('.img-cap').value.trim();
+      const fileInput = r.querySelector('.img-file');
+      if(r.dataset.userEdited!=='true' && itemSlug){
+        fileInput.value = `${itemSlug}-${r.dataset.n}.png`;
+      }
+      const filename = fileInput.value.trim();
+      return (cap && filename) ? { url:`images/${filename}`, caption:cap, filename } : null;
+    }).filter(Boolean);
+    container._addRow = addRow;
+  }
+  function makeOptionList(container, onChange){
+    container.innerHTML = '';
+    let count = 0;
+    function addRow(){
+      count++;
+      const row = document.createElement('div');
+      row.className = 'list-row opt-row';
+      row.innerHTML = `<input type="radio" name="correctOpt" ${count===1?'checked':''}>
+        <input type="text" placeholder="Option ${count}">
+        <button class="list-remove" type="button">✕</button>`;
+      row.querySelector('input[type=text]').addEventListener('input', onChange);
+      row.querySelector('input[type=radio]').addEventListener('change', onChange);
+      row.querySelector('.list-remove').addEventListener('click', ()=>{
+        if(container.querySelectorAll('.list-row').length<=2){ toast('Need at least 2 options'); return; }
+        row.remove(); onChange();
+      });
+      container.insertBefore(row, addBtn);
+    }
+    const addBtn = document.createElement('button');
+    addBtn.className = 'list-add'; addBtn.type = 'button'; addBtn.textContent = '+ Add option';
+    addBtn.addEventListener('click', ()=>{ if(container.querySelectorAll('.list-row').length>=6){ toast('Max 6 options'); return; } addRow(); onChange(); });
+    container.appendChild(addBtn);
+    addRow(); addRow();
+    container._getData = () => {
+      const rows = [...container.querySelectorAll('.list-row.opt-row')];
+      const options = rows.map(r=>r.querySelector('input[type=text]').value.trim());
+      let correctIndex = rows.findIndex(r=>r.querySelector('input[type=radio]').checked);
+      return { options, correctIndex: correctIndex<0?0:correctIndex };
+    };
+  }
+
+  // ================= THEME/TOPIC SELECT HELPERS =================
+  function fillThemeSelect(sel){
+    sel.innerHTML = KNOWN_THEMES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');
+  }
+  function fillTopicSelect(sel, themeId){
+    const topics = Object.entries(KNOWN_TOPICS).filter(([id,t])=>t.theme===themeId);
+    sel.innerHTML = topics.map(([id,t])=>`<option value="${id}">${t.label}</option>`).join('');
+  }
+
+  // ================= COURSE/CLASS PICKER (shared by item + question forms) =================
+  // Wires up "<prefix>_course" / "<prefix>_class" selects plus their
+  // "+ Add a new course" / "+ Add a new class" toggle blocks. Reads and
+  // writes KNOWN_COURSES, so a course/class added while filling in one item
+  // is immediately pickable for the next item or question too.
+  const _coursePickers = [];
+  function refreshCourseSelects(){ _coursePickers.forEach(p=>p.refresh()); }
+  function initCourseClassPicker(prefix, onChange){
+    const courseSel = document.getElementById(`${prefix}_course`);
+    const classSel = document.getElementById(`${prefix}_class`);
+    const newCourseToggle = document.getElementById(`${prefix}_newCourseToggle`);
+    const newCourseBlock = document.getElementById(`${prefix}_newCourseBlock`);
+    const newCourseCode = document.getElementById(`${prefix}_newCourseCode`);
+    const newCourseLabel = document.getElementById(`${prefix}_newCourseLabel`);
+    const newClassToggle = document.getElementById(`${prefix}_newClassToggle`);
+    const newClassBlock = document.getElementById(`${prefix}_newClassBlock`);
+    const newClassKey = document.getElementById(`${prefix}_newClassKey`);
+    const newClassLabel = document.getElementById(`${prefix}_newClassLabel`);
+    const spansToggle = document.getElementById(`${prefix}_spansToggle`);
+    const spansBlock = document.getElementById(`${prefix}_spansBlock`);
+    const spansText = document.getElementById(`${prefix}_spansText`);
+
+    function fillCourseSelect(){
+      const current = courseSel.value;
+      courseSel.innerHTML = `<option value="">— none —</option>` +
+        Object.values(KNOWN_COURSES).map(c=>`<option value="${c.code}">${c.code} — ${c.label}</option>`).join('');
+      if([...courseSel.options].some(o=>o.value===current)) courseSel.value = current;
+      fillClassSelect();
+    }
+    function fillClassSelect(){
+      const c = KNOWN_COURSES[courseSel.value];
+      classSel.disabled = !c;
+      classSel.innerHTML = `<option value="">— none —</option>` +
+        (c ? Object.entries(c.classes).map(([key,k])=>`<option value="${key}">${key} — ${k.label}</option>`).join('') : '');
+    }
+    courseSel.addEventListener('change', ()=>{ fillClassSelect(); onChange(); });
+    classSel.addEventListener('change', onChange);
+    newCourseToggle.addEventListener('click', ()=>{
+      newCourseBlock.classList.toggle('show');
+      courseSel.disabled = newCourseBlock.classList.contains('show');
+      onChange();
+    });
+    newClassToggle.addEventListener('click', ()=>{
+      newClassBlock.classList.toggle('show');
+      classSel.disabled = newClassBlock.classList.contains('show') || !KNOWN_COURSES[courseSel.value];
+      onChange();
+    });
+    // "Spans several classes" is a separate escape hatch, not another
+    // course/class option — when it's on, it disables the course/class
+    // pickers entirely rather than combining with them, since the whole
+    // point is describing content that doesn't reduce to one pair.
+    spansToggle.addEventListener('click', ()=>{
+      spansBlock.classList.toggle('show');
+      const spanning = spansBlock.classList.contains('show');
+      courseSel.disabled = spanning; classSel.disabled = spanning || !KNOWN_COURSES[courseSel.value];
+      newCourseToggle.style.display = spanning ? 'none' : '';
+      newClassToggle.style.display = spanning ? 'none' : '';
+      if(spanning){ newCourseBlock.classList.remove('show'); newClassBlock.classList.remove('show'); }
+      onChange();
+    });
+    spansText.addEventListener('input', onChange);
+    [newCourseCode, newCourseLabel, newClassKey, newClassLabel].forEach(el=>el.addEventListener('input', onChange));
+    fillCourseSelect();
+
+    const api = {
+      refresh: fillCourseSelect,
+      // Pure preview: reads the current picker state and returns the
+      // course/class codes to use plus a preview snippet, WITHOUT writing
+      // anything to KNOWN_COURSES — safe to call on every keystroke.
+      resolve(){
+        const spanning = spansBlock.classList.contains('show') && spansText.value.trim();
+        if(spanning){
+          return { course:'', class:'', addCourseSnippet:'', addClassSnippet:'', usingNewCourse:false, usingNewClass:false, relatedCourseOverride: spansText.value.trim() };
+        }
+        const usingNewCourse = newCourseBlock.classList.contains('show');
+        const usingNewClass = newClassBlock.classList.contains('show');
+        let course = '', cls = '', addCourseSnippet = '', addClassSnippet = '';
+
+        if(usingNewCourse){
+          const code = (newCourseCode.value.trim() || 'NEWCOURSE').toUpperCase();
+          const label = newCourseLabel.value.trim() || 'Untitled course';
+          course = code;
+          const firstClassKey = usingNewClass ? (newClassKey.value.trim() || 'L1') : '';
+          const firstClassLabel = usingNewClass ? (newClassLabel.value.trim() || 'Untitled class') : '';
+          if(usingNewClass) cls = firstClassKey;
+          addCourseSnippet = `// new course — add to COURSES in game-data.js\nCOURSES['${code}'] = {\n  code:'${code}', label:'${esc(label)}',\n  classes:{${usingNewClass ? `\n    '${firstClassKey}': { label:'${esc(firstClassLabel)}' },\n  ` : ''}}\n};`;
+        } else if(courseSel.value){
+          course = courseSel.value;
+          if(usingNewClass){
+            const key = newClassKey.value.trim() || 'L1';
+            const label = newClassLabel.value.trim() || 'Untitled class';
+            cls = key;
+            addClassSnippet = `// new class — add to COURSES.${course}.classes in game-data.js\n'${key}': { label:'${esc(label)}' },`;
+          } else {
+            cls = classSel.value;
+          }
+        }
+        return { course, class: cls, addCourseSnippet, addClassSnippet, usingNewCourse, usingNewClass, relatedCourseOverride: '' };
+      },
+      // Actually registers a newly-typed course/class into KNOWN_COURSES —
+      // called only when the item/question is actually added to the batch,
+      // so a course/class doesn't get permanently created just because the
+      // "+ Add a new course" toggle was clicked and then abandoned.
+      commit(resolved){
+        if(resolved.usingNewCourse && resolved.course && !KNOWN_COURSES[resolved.course]){
+          const label = newCourseLabel.value.trim() || 'Untitled course';
+          KNOWN_COURSES[resolved.course] = { code:resolved.course, label, classes:{} };
+        }
+        if(resolved.class && KNOWN_COURSES[resolved.course]){
+          const label = newClassLabel.value.trim() || 'Untitled class';
+          KNOWN_COURSES[resolved.course].classes[resolved.class] = KNOWN_COURSES[resolved.course].classes[resolved.class] || { label };
+        }
+      },
+      resetNewBlocks(){
+        newCourseBlock.classList.remove('show'); courseSel.disabled = false;
+        newClassBlock.classList.remove('show'); classSel.disabled = !KNOWN_COURSES[courseSel.value];
+        newCourseCode.value=''; newCourseLabel.value=''; newClassKey.value=''; newClassLabel.value='';
+        spansBlock.classList.remove('show'); spansText.value='';
+        newCourseToggle.style.display = ''; newClassToggle.style.display = '';
+      },
+    };
+    _coursePickers.push(api);
+    return api;
+  }
+
+  // ================= ITEM FORM =================
+  const i_theme = document.getElementById('i_theme');
+  const i_topic = document.getElementById('i_topic');
+  const i_newTopicToggle = document.getElementById('i_newTopicToggle');
+  const i_newTopicBlock = document.getElementById('i_newTopicBlock');
+  const i_newTopicLabel = document.getElementById('i_newTopicLabel');
+  const i_newTopicIcon = document.getElementById('i_newTopicIcon');
+  const i_label = document.getElementById('i_label');
+  const i_idPreview = document.getElementById('i_idPreview');
+  const i_description = document.getElementById('i_description');
+  const i_mechanism = document.getElementById('i_mechanism');
+  const i_funFactsEl = document.getElementById('i_funFacts');
+  const i_hashtagsEl = document.getElementById('i_hashtags');
+  const i_refsEl = document.getElementById('i_refs');
+  const i_imagesEl = document.getElementById('i_images');
+  const i_codeOut = document.getElementById('i_codeOut');
+  const i_filesNeeded = document.getElementById('i_filesNeeded');
+  const i_previewCard = document.getElementById('i_previewCard');
+  const i_editModeToggle = document.getElementById('i_editModeToggle');
+  const i_editPickerBlock = document.getElementById('i_editPickerBlock');
+  const i_editItemSelect = document.getElementById('i_editItemSelect');
+  const i_addQuestionQuickLink = document.getElementById('i_addQuestionQuickLink');
+  i_addQuestionQuickLink.addEventListener('click', ()=>{ if(editingItemId) jumpToNewQuestionForItem(editingItemId); });
+
+  fillThemeSelect(i_theme);
+  fillTopicSelect(i_topic, i_theme.value);
+  i_theme.addEventListener('change', ()=>{ fillTopicSelect(i_topic, i_theme.value); renderItem(); refreshQuestionItemSelect(); });
+  i_topic.addEventListener('change', renderItem);
+  i_newTopicToggle.addEventListener('click', ()=>{
+    i_newTopicBlock.classList.toggle('show');
+    i_topic.disabled = i_newTopicBlock.classList.contains('show');
+    renderItem();
+  });
+  [i_newTopicLabel, i_newTopicIcon, i_label, i_description, i_mechanism].forEach(el=>el.addEventListener('input', renderItem));
+  makeTextList(i_funFactsEl, 'A short interesting fact…', renderItem);
+  makeTextList(i_hashtagsEl, 'e.g. Leukemia', renderItem, null, 'knownHashtagsList');
+  makeRefList(i_refsEl, renderItem);
+  makeImageList(i_imagesEl, renderItem);
+  const i_coursePicker = initCourseClassPicker('i', renderItem);
+
+  // ---- Edit mode: pick an existing item, prefill everything from it, and
+  // generate a REPLACE snippet (same itemId) instead of an ADD snippet. ----
+  let editingItemId = null, editingItemTheme = null, editingItemTopic = null;
+  let editingItemQuestions = null; // the item's EXISTING questions array, carried through untouched so a "REPLACE" edit doesn't silently delete them
+  function refreshEditItemSelect(){
+    const current = i_editItemSelect.value;
+    i_editItemSelect.innerHTML = KNOWN_ITEMS
+      .map(it=>({ it, themeLabel:(KNOWN_THEMES.find(t=>t.id===it.theme)||{}).label||it.theme, topicLabel:(KNOWN_TOPICS[it.topic]||{}).label||it.topic }))
+      .sort((a,b)=> a.themeLabel.localeCompare(b.themeLabel) || a.topicLabel.localeCompare(b.topicLabel) || a.it.label.localeCompare(b.it.label))
+      .map(({it,themeLabel,topicLabel})=>`<option value="${it.id}">${themeLabel} · ${topicLabel} · ${it.label}</option>`).join('');
+    if([...i_editItemSelect.options].some(o=>o.value===current)) i_editItemSelect.value = current;
+  }
+  refreshEditItemSelect();
+  function loadItemForEditing(itemId){
+    const known = KNOWN_ITEMS.find(it=>it.id===itemId);
+    if(!known) return;
+    const item = RD.THEMES[known.theme].topics[known.topic].items[itemId];
+    if(!item) return;
+    editingItemId = itemId; editingItemTheme = known.theme; editingItemTopic = known.topic;
+    editingItemQuestions = item.questions || [];
+    i_theme.value = known.theme;
+    fillTopicSelect(i_topic, known.theme);
+    i_topic.value = known.topic;
+    i_theme.disabled = true; i_topic.disabled = true;
+    i_label.value = item.label || '';
+    i_description.value = item.description || '';
+    i_mechanism.value = item.mechanism || '';
+    makeTextList(i_funFactsEl, 'A short interesting fact…', renderItem, item.funFacts||[]);
+    makeTextList(i_hashtagsEl, 'e.g. Leukemia', renderItem, item.hashtags||[], 'knownHashtagsList');
+    makeRefList(i_refsEl, renderItem, item.refs||[]);
+    makeImageList(i_imagesEl, renderItem, item.images||[]);
+    i_coursePicker.refresh();
+    const courseSel = document.getElementById('i_course'), classSel = document.getElementById('i_class');
+    const spansBlock = document.getElementById('i_spansBlock'), spansText = document.getElementById('i_spansText');
+    if(!item.course && item.relatedCourse){
+      // A legacy relatedCourse string with no course/class pair — this
+      // item spans multiple classes, so prefill the "spans" field instead
+      // of trying to force it into a single course/class it doesn't have.
+      spansBlock.classList.add('show');
+      spansText.value = item.relatedCourse;
+      courseSel.disabled = true; classSel.disabled = true;
+    } else {
+      spansBlock.classList.remove('show');
+      spansText.value = '';
+    }
+    courseSel.value = item.course || '';
+    courseSel.dispatchEvent(new Event('change'));
+    classSel.value = item.class || '';
+    i_addQuestionQuickLink.style.display = 'inline-block';
+    renderItem();
+  }
+  function resetItemFormToNew(){
+    editingItemId = null; editingItemTheme = null; editingItemTopic = null; editingItemQuestions = null;
+    i_editModeToggle.checked = false;
+    i_editPickerBlock.classList.remove('show');
+    i_addQuestionQuickLink.style.display = 'none';
+    i_theme.disabled = false; i_topic.disabled = false;
+    i_label.value=''; i_description.value=''; i_mechanism.value='';
+    makeTextList(i_funFactsEl, 'A short interesting fact…', renderItem);
+    makeTextList(i_hashtagsEl, 'e.g. Leukemia', renderItem, null, 'knownHashtagsList');
+    makeRefList(i_refsEl, renderItem);
+    makeImageList(i_imagesEl, renderItem);
+    i_newTopicBlock.classList.remove('show'); i_topic.disabled = false;
+    i_newTopicLabel.value=''; i_newTopicIcon.value='📋';
+    i_coursePicker.resetNewBlocks();
+    renderItem();
+  }
+  i_editModeToggle.addEventListener('change', ()=>{
+    if(i_editModeToggle.checked){
+      i_editPickerBlock.classList.add('show');
+      refreshEditItemSelect();
+      if(i_editItemSelect.value) loadItemForEditing(i_editItemSelect.value);
+    } else {
+      resetItemFormToNew();
+    }
+  });
+  i_editItemSelect.addEventListener('change', ()=> loadItemForEditing(i_editItemSelect.value));
+
+  function currentItemSlug(){
+    return slugify(i_label.value);
+  }
+  function buildItemObject(){
+    if(editingItemId){
+      const courseInfo = i_coursePicker.resolve();
+      return {
+        theme: editingItemTheme, topicId: editingItemTopic, usingNewTopic: false,
+        itemId: editingItemId, baseSlug: currentItemSlug(), editingItemId,
+        label: i_label.value.trim() || 'Untitled item',
+        description: i_description.value.trim() || '(add a description)',
+        mechanism: i_mechanism.value.trim(),
+        funFacts: i_funFactsEl._getValues(),
+        hashtags: i_hashtagsEl._getValues(),
+        course: courseInfo.course, class: courseInfo.class, relatedCourseOverride: courseInfo.relatedCourseOverride, courseInfo,
+        addCourseSnippet: courseInfo.addCourseSnippet, addClassSnippet: courseInfo.addClassSnippet,
+        refs: i_refsEl._getValues(),
+        images: i_imagesEl._getValues(editingItemId),
+        existingQuestions: editingItemQuestions || [],
+      };
+    }
+    const usingNewTopic = i_newTopicBlock.classList.contains('show');
+    const topicId = usingNewTopic ? (slugify(i_newTopicLabel.value)||'newtopic') : i_topic.value;
+    const baseSlug = currentItemSlug();
+    const itemId = baseSlug + '_' + randSuffix(); // underscore, not hyphen -- this id is used as a bare object key in the generated code, and hyphens aren't valid there unquoted
+    const courseInfo = i_coursePicker.resolve();
+    return {
+      theme: i_theme.value,
+      topicId, usingNewTopic, editingItemId: null,
+      newTopicLabel: i_newTopicLabel.value.trim(),
+      newTopicIcon: i_newTopicIcon.value.trim() || '📋',
+      itemId, baseSlug,
+      label: i_label.value.trim() || 'Untitled item',
+      description: i_description.value.trim() || '(add a description)',
+      mechanism: i_mechanism.value.trim(),
+      funFacts: i_funFactsEl._getValues(),
+      hashtags: i_hashtagsEl._getValues(),
+      course: courseInfo.course, class: courseInfo.class, relatedCourseOverride: courseInfo.relatedCourseOverride, courseInfo,
+      addCourseSnippet: courseInfo.addCourseSnippet, addClassSnippet: courseInfo.addClassSnippet,
+      refs: i_refsEl._getValues(),
+      images: i_imagesEl._getValues(baseSlug),
+    };
+  }
+  // Faithfully re-emits an item's EXISTING questions array as code, so that
+  // editing an item (which REPLACEs the whole block) carries its questions
+  // through unchanged instead of silently deleting them — a "REPLACE"
+  // snippet with no questions:[] field at all would wipe out every
+  // question tied to that item the moment it's pasted in.
+  function serializeQuestionsArray(questions){
+    if(!questions || !questions.length) return '[]';
+    return '[\n' + questions.map(q=>{
+      const optsStr = (q.options||[]).map(op=>`'${esc(op)}'`).join(', ');
+      const hashtagsStr = (q.hashtags&&q.hashtags.length) ? `,\n      hashtags:[${q.hashtags.map(h=>`'${esc(h)}'`).join(', ')}]` : '';
+      let tail = '';
+      if(q.relatedCourse) tail = `,\n      relatedCourse:'${esc(q.relatedCourse)}'`;
+      else if(q.course) tail = `,\n      course:'${q.course}'${q.class?`,\n      class:'${q.class}'`:''}`;
+      return `    { id:'${q.id}', prompt:'${esc(q.prompt)}',\n      options:[${optsStr}], correctIndex:${q.correctIndex},\n      explanation:'${esc(q.explanation)}'${hashtagsStr}${tail} },`;
+    }).join('\n') + '\n  ]';
+  }
+  function itemCodeString(o){
+    let out = '';
+    if(o.usingNewTopic){
+      out += `// new topic — add to TOPICS, then THEMES.${o.theme}.topics in game-data.js\n`;
+      out += `'${o.topicId}': { label:'${esc(o.newTopicLabel||o.topicId)}', icon:'${o.newTopicIcon}', color:'#c58bff' },\n\n`;
+    }
+    if(o.addCourseSnippet) out += o.addCourseSnippet + '\n\n';
+    if(o.addClassSnippet) out += o.addClassSnippet + '\n\n';
+    const imagesStr = o.images.length ? `[\n${o.images.map(im=>`      { url:'${im.url}', caption:'${esc(im.caption)}' },`).join('\n')}\n    ]` : '[]';
+    const factsStr = o.funFacts.length ? o.funFacts.map(f=>`'${esc(f)}'`).join(', ') : '';
+    const hashtagsStr = o.hashtags.length ? `[${o.hashtags.map(h=>`'${esc(h)}'`).join(', ')}]` : '[]';
+    const refsStr = o.refs.length ? `[${o.refs.map(r=>`{ label:'${esc(r.label)}'${r.url?`, url:'${esc(r.url)}'`:''} }`).join(', ')}]` : '[]';
+    out += o.editingItemId
+      ? `// REPLACE THEMES.${o.theme}.topics.${o.topicId}.items.${o.itemId} in game-data.js (edit)\n`
+      : `// -> THEMES.${o.theme}.topics.${o.topicId}.items in game-data.js\n`;
+    out += `'${o.itemId}': { label:'${esc(o.label)}', images:${imagesStr},\n`;
+    out += `  description:'${esc(o.description)}',\n`;
+    if(o.mechanism) out += `  mechanism:'${esc(o.mechanism)}',\n`;
+    out += `  funFacts:[${factsStr}],\n`;
+    out += `  refs:${refsStr},\n`;
+    out += `  hashtags:${hashtagsStr}`;
+    // A "spans several classes" free-text override (see initCourseClassPicker)
+    // takes the place of course/class entirely, matching the legacy
+    // relatedCourse-string items already in game-data.js for content that
+    // genuinely doesn't belong to one single lecture.
+    if(o.relatedCourseOverride) out += `,\n  relatedCourse:'${esc(o.relatedCourseOverride)}'`;
+    else if(o.course) out += `,\n  course:'${o.course}'${o.class?`,\n  class:'${o.class}'`:''}`;
+    if(o.editingItemId) out += `,\n  questions:${serializeQuestionsArray(o.existingQuestions)}`;
+    out += ` },`;
+    return out;
+  }
+  // Mirrors the actual item-detail markup/classes from cancer-runner-group.html
+  // so this is a true preview, not just an approximation.
+  function renderItemPreview(o){
+    const topicMeta = RD.TOPICS[o.topicId] || (o.usingNewTopic ? { label:o.newTopicLabel||o.topicId, icon:o.newTopicIcon } : { label:o.topicId });
+    const courseStr = o.course ? courseDisplayString(o.course, o.class) : '';
+    const factsHtml = o.funFacts.length ? `<div class="p-sub">Fun facts</div><ul class="p-facts">${o.funFacts.map(f=>`<li>${esc(f).replace(/\\'/g,"'")}</li>`).join('')}</ul>` : '';
+    const mechHtml = o.mechanism ? `<div class="p-sub">Mechanism</div><p class="p-desc">${o.mechanism}</p>` : '';
+    // Contributor.html only ever has a filename typed in, not the actual
+    // image file, so this can't render the real picture — it shows a
+    // placeholder with the caption instead. Matches the real page's
+    // "No image added yet" fallback when there's nothing entered.
+    const imagesHtml = o.images.length
+      ? `<div class="img-strip">${o.images.map(im=>`<div class="img-placeholder">🖼 ${im.caption||im.filename}</div>`).join('')}</div>`
+      : `<div class="img-strip"><div class="img-placeholder">No image added yet</div></div>`;
+    const refsHtml = o.refs.length
+      ? `<div class="p-sub">References</div><ul class="p-facts">${o.refs.map(r=> r.url ? `<li><a href="${r.url}" target="_blank" rel="noopener" style="color:var(--membrane)">${esc(r.label).replace(/\\'/g,"'")}</a></li>` : `<li>${esc(r.label).replace(/\\'/g,"'")}</li>`).join('')}</ul>`
+      : '';
+    i_previewCard.innerHTML = `
+      <div class="p-cat">${topicMeta.icon||''} ${topicMeta.label}</div>
+      <div class="p-name">${o.label}</div>
+      ${courseStr ? `<div class="p-course">🎓 ${courseStr}</div>` : ''}
+      ${o.hashtags.length ? `<div class="p-chips">${o.hashtags.map(h=>`<span class="p-chip">#${h}</span>`).join('')}</div>` : ''}
+      ${imagesHtml}
+      <p class="p-desc">${o.description}</p>
+      ${mechHtml}
+      ${factsHtml}
+      ${refsHtml}
+    `;
+  }
+  function renderItem(){
+    const o = buildItemObject();
+    i_idPreview.textContent = editingItemId
+      ? `editing id: ${o.itemId} — ${(o.existingQuestions||[]).length} existing question${(o.existingQuestions||[]).length===1?'':'s'} will be carried over unchanged`
+      : `id: ${o.itemId}`;
+    i_codeOut.textContent = itemCodeString(o);
+    renderItemPreview(o);
+    if(o.images.length){
+      i_filesNeeded.classList.add('show');
+      i_filesNeeded.innerHTML = `📎 Save your image file(s) as: ${o.images.map(im=>`<b>${im.filename}</b>`).join(', ')} (or edit those filenames above to whatever you prefer), then upload them to <a href="https://drive.google.com/drive/folders/1Wofvby0aQ6a169mr50jU0sYIEk-6BaG2?usp=drive_link" target="_blank" rel="noopener" style="color:var(--membrane);">the shared Drive folder</a> with that exact name.`;
+    } else {
+      i_filesNeeded.classList.remove('show');
+    }
+  }
+  document.getElementById('i_copyOne').addEventListener('click', ()=>{
+    copyText(itemCodeString(buildItemObject()));
+  });
+  document.getElementById('i_addBatch').addEventListener('click', ()=>{
+    if(!i_label.value.trim()){ toast('Give it a name first'); return; }
+    const o = buildItemObject();
+    i_coursePicker.commit(o.courseInfo);
+    if(o.editingItemId){
+      const existing = KNOWN_ITEMS.find(it=>it.id===o.itemId);
+      if(existing){ existing.label = o.label; existing.course = o.course; existing.class = o.class; }
+    } else {
+      KNOWN_ITEMS.push({ id:o.itemId, theme:o.theme, topic:o.topicId, label:o.label, course:o.course, class:o.class }); // so it can be linked to from the Question tab, and shown in the structure list
+      if(o.usingNewTopic && !KNOWN_TOPICS[o.topicId]) KNOWN_TOPICS[o.topicId] = { label:o.newTopicLabel||o.topicId, theme:o.theme };
+    }
+    pushToQueue({ type: o.editingItemId ? 'edit-item' : 'item', title:o.label, code:itemCodeString(o), note:`${o.editingItemId?'Edit · ':''}${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topicId}${o.images.length?` · ${o.images.length} image file(s) needed`:''}` });
+    refreshQuestionItemSelect();
+    refreshEditItemSelect();
+    renderStructureList();
+    i_coursePicker.refresh();
+    refreshCourseSelects();
+    toast(o.editingItemId ? 'Edit added to queue' : 'Added to queue');
+    resetItemFormToNew();
+  });
+
+  // ================= QUESTION FORM =================
+  const q_theme = document.getElementById('q_theme');
+  const q_topic = document.getElementById('q_topic');
+  const q_itemSelect = document.getElementById('q_itemSelect');
+  const q_customItemToggle = document.getElementById('q_customItemToggle');
+  const q_customItemBlock = document.getElementById('q_customItemBlock');
+  const q_customItemId = document.getElementById('q_customItemId');
+  const q_prompt = document.getElementById('q_prompt');
+  const q_optionsEl = document.getElementById('q_options');
+  const q_explanation = document.getElementById('q_explanation');
+  const q_hashtagsEl = document.getElementById('q_hashtags');
+  const q_codeOut = document.getElementById('q_codeOut');
+  const q_previewCard = document.getElementById('q_previewCard');
+
+  fillThemeSelect(q_theme);
+  fillTopicSelect(q_topic, q_theme.value);
+  refreshQuestionItemSelect();
+  q_theme.addEventListener('change', ()=>{ fillTopicSelect(q_topic, q_theme.value); refreshQuestionItemSelect(); renderQuestion(); });
+  q_topic.addEventListener('change', ()=>{ refreshQuestionItemSelect(); renderQuestion(); });
+  q_customItemToggle.addEventListener('click', ()=>{
+    q_customItemBlock.classList.toggle('show');
+    q_itemSelect.disabled = q_customItemBlock.classList.contains('show');
+    renderQuestion();
+  });
+  [q_prompt, q_explanation, q_customItemId].forEach(el=>el.addEventListener('input', renderQuestion));
+  q_itemSelect.addEventListener('change', renderQuestion);
+  makeTextList(q_hashtagsEl, 'e.g. Leukemia', renderQuestion, null, 'knownHashtagsList');
+  makeOptionList(q_optionsEl, renderQuestion);
+  const q_coursePicker = initCourseClassPicker('q', renderQuestion);
+
+  function refreshQuestionItemSelect(){
+    const items = KNOWN_ITEMS.filter(it=>it.theme===q_theme.value && it.topic===q_topic.value);
+    q_itemSelect.innerHTML = items.length
+      ? items.map(it=>`<option value="${it.id}">${it.label}</option>`).join('')
+      : `<option value="">(none yet — add one in the New item tab, or use the option below)</option>`;
+  }
+  function buildQuestionObject(){
+    const usingCustom = q_customItemBlock.classList.contains('show');
+    const { options, correctIndex } = q_optionsEl._getData();
+    const courseInfo = q_coursePicker.resolve();
+    return {
+      theme: q_theme.value, topic: q_topic.value,
+      itemId: usingCustom ? (q_customItemId.value.trim()||'unknown-item') : (q_itemSelect.value||'unknown-item'),
+      qId: 'q-' + q_topic.value + '-' + randSuffixStable(),
+      prompt: q_prompt.value.trim() || 'Untitled question?',
+      options: options.filter(Boolean),
+      correctIndex,
+      explanation: q_explanation.value.trim() || '(add an explanation)',
+      hashtags: q_hashtagsEl._getValues(),
+      course: courseInfo.course, class: courseInfo.class, relatedCourseOverride: courseInfo.relatedCourseOverride, courseInfo,
+      addCourseSnippet: courseInfo.addCourseSnippet, addClassSnippet: courseInfo.addClassSnippet,
+    };
+  }
+  let _qSuffix = null;
+  function randSuffixStable(){ if(!_qSuffix) _qSuffix = randSuffix(); return _qSuffix; }
+  function questionCodeString(o){
+    let pre = '';
+    if(o.addCourseSnippet) pre += o.addCourseSnippet + '\n\n';
+    if(o.addClassSnippet) pre += o.addClassSnippet + '\n\n';
+    const optsStr = o.options.map(op=>`'${esc(op)}'`).join(', ');
+    const hashtagsStr = o.hashtags.length ? `, hashtags:[${o.hashtags.map(h=>`'${esc(h)}'`).join(', ')}]` : '';
+    // Questions live nested under their item now, in an item.questions
+    // array, and inherit the item's course/class automatically — only
+    // spell course/class out on the question itself if it genuinely
+    // differs from its item's (e.g. a question spanning several classes).
+    const item = KNOWN_ITEMS.find(it=>it.id===o.itemId);
+    const differsFromItem = o.course && (!item || item.course!==o.course || item.class!==o.class);
+    let tail = '';
+    if(o.relatedCourseOverride) tail = `,\n  relatedCourse:'${esc(o.relatedCourseOverride)}'`;
+    else if(differsFromItem) tail = `,\n  course:'${o.course}'${o.class?`,\n  class:'${o.class}'`:''}`;
+    return `${pre}// -> THEMES.${o.theme}.topics.${o.topic}.items.${o.itemId}.questions in game-data.js\n{ id:'${o.qId}', prompt:'${esc(o.prompt)}',\n  options:[${optsStr}], correctIndex:${o.correctIndex},\n  explanation:'${esc(o.explanation)}'${hashtagsStr}${tail} },`;
+  }
+  // Mirrors the real MCQ modal's styling — correct option highlighted, same
+  // as a player would see it after answering.
+  function renderQuestionPreview(o){
+    const topicMeta = RD.TOPICS[o.topic] || { label:o.topic };
+    q_previewCard.innerHTML = `
+      <div class="preview-mcq-cat">${topicMeta.icon||''} ${topicMeta.label}</div>
+      <p class="preview-mcq-prompt">${o.prompt}</p>
+      ${o.options.map((op,i)=>`<div class="preview-mcq-option${i===o.correctIndex?' correct':''}">${i+1}. ${op}${i===o.correctIndex?' ✓':''}</div>`).join('')}
+      ${o.explanation ? `<div class="p-sub" style="margin-top:10px;">Explanation shown after answering</div><p class="p-desc">${o.explanation}</p>` : ''}
+    `;
+  }
+  function renderQuestion(){
+    const o = buildQuestionObject();
+    q_codeOut.textContent = questionCodeString(o);
+    renderQuestionPreview(o);
+  }
+  document.getElementById('q_copyOne').addEventListener('click', ()=>{
+    copyText(questionCodeString(buildQuestionObject()));
+  });
+  document.getElementById('q_addBatch').addEventListener('click', ()=>{
+    if(!q_prompt.value.trim()){ toast('Write the question first'); return; }
+    const o = buildQuestionObject();
+    q_coursePicker.commit(o.courseInfo);
+    pushToQueue({ type:'question', title:o.prompt.slice(0,50), code:questionCodeString(o), note:`${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topic}` });
+    refreshCourseSelects();
+    renderStructureList();
+    toast('Added to queue');
+    q_prompt.value=''; q_explanation.value=''; q_customItemId.value='';
+    _qSuffix = null;
+    makeTextList(q_hashtagsEl, 'e.g. Leukemia', renderQuestion, null, 'knownHashtagsList');
+    makeOptionList(q_optionsEl, renderQuestion);
+    q_customItemBlock.classList.remove('show'); q_itemSelect.disabled = false;
+    q_coursePicker.resetNewBlocks();
+    renderQuestion();
+  });
+
+  // ================= COURSE FORM =================
+  const c_label = document.getElementById('c_label');
+  const c_icon = document.getElementById('c_icon');
+  const c_blurb = document.getElementById('c_blurb');
+  const c_idPreview = document.getElementById('c_idPreview');
+  const c_codeOut = document.getElementById('c_codeOut');
+  [c_label, c_icon, c_blurb].forEach(el=>el.addEventListener('input', renderCourse));
+
+  function buildCourseObject(){
+    return {
+      id: slugify(c_label.value) + '_' + randSuffix(), // underscore, not hyphen -- used as THEMES['id'] in the generated code
+      label: c_label.value.trim() || 'Untitled course',
+      icon: c_icon.value.trim() || '📘',
+      blurb: c_blurb.value.trim() || '(add a description)',
+    };
+  }
+  function courseCodeString(o){
+    return `// new theme — new top-level key in THEMES in game-data.js\nTHEMES['${o.id}'] = {\n  label:'${esc(o.label)}', icon:'${o.icon}',\n  blurb:'${esc(o.blurb)}',\n  topics:{}\n};`;
+  }
+  function renderCourse(){
+    const o = buildCourseObject();
+    c_idPreview.textContent = `id: ${o.id}`;
+    c_codeOut.textContent = courseCodeString(o);
+  }
+  document.getElementById('c_copyOne').addEventListener('click', ()=>{
+    copyText(courseCodeString(buildCourseObject()));
+  });
+  document.getElementById('c_addBatch').addEventListener('click', ()=>{
+    if(!c_label.value.trim()){ toast('Give it a name first'); return; }
+    const o = buildCourseObject();
+    KNOWN_THEMES.push({ id:o.id, label:o.label });
+    pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new theme' });
+    [i_theme, q_theme].forEach(sel=>fillThemeSelect(sel));
+    renderStructureList();
+    toast('Added to queue');
+    c_label.value=''; c_blurb.value=''; c_icon.value='📘';
+    renderCourse();
+  });
+
+  // ================= TABS =================
+  const tabStructure = document.getElementById('tabStructure');
+  const tabItem = document.getElementById('tabItem');
+  const tabQuestion = document.getElementById('tabQuestion');
+  const tabCourse = document.getElementById('tabCourse');
+  const structureSection = document.getElementById('structureSection');
+  const itemSection = document.getElementById('itemSection');
+  const questionSection = document.getElementById('questionSection');
+  const courseSection = document.getElementById('courseSection');
+  function showTab(which){
+    [tabStructure,tabItem,tabQuestion,tabCourse].forEach(t=>t.classList.remove('active'));
+    [structureSection,itemSection,questionSection,courseSection].forEach(s=>s.style.display='none');
+    if(which==='structure'){ tabStructure.classList.add('active'); structureSection.style.display='block'; renderStructureList(); }
+    if(which==='item'){ tabItem.classList.add('active'); itemSection.style.display='block'; }
+    if(which==='question'){ tabQuestion.classList.add('active'); questionSection.style.display='block'; }
+    if(which==='course'){ tabCourse.classList.add('active'); courseSection.style.display='block'; }
+  }
+  tabStructure.addEventListener('click', ()=>showTab('structure'));
+  tabItem.addEventListener('click', ()=>showTab('item'));
+  tabQuestion.addEventListener('click', ()=>showTab('question'));
+  tabCourse.addEventListener('click', ()=>showTab('course'));
+
+  // ================= STRUCTURE BROWSER =================
+  const structureList = document.getElementById('structureList');
+  const structStats = document.getElementById('structStats');
+  const structSearchInput = document.getElementById('structSearchInput');
+  function esc2(s){ return String(s||'').replace(/</g,'&lt;'); } // for raw user text going into innerHTML outside esc()'d code strings
+  // Builds one item's toggle — shared by the Theme→Topic→Item tree above
+  // and the Course→Class→Item tree below, so expanding an item shows the
+  // exact same full detail (description, mechanism, tags, questions)
+  // wherever you found it from. `subtitle` is whatever context line makes
+  // sense for that tree (a course tag in the topic tree; theme·topic in
+  // the course tree, since the course itself is already the heading there).
+  function renderItemToggleHtml(it, full, subtitle){
+    if(!full){
+      // Added this session, not yet merged into game-data.js — we only
+      // have the summary fields (KNOWN_ITEMS), not the full item, so show
+      // it plainly instead of a misleadingly-empty toggle.
+      return { html: `<div class="struct-item">${it.label}${subtitle?` <span class="struct-course">· ${subtitle}</span>`:''} <span class="struct-pending">— pending, not yet merged</span></div>`, qCount:0 };
+    }
+    const qCount = (full.questions||[]).length;
+    const searchBlob = `${full.label} ${full.description||''} ${full.mechanism||''} ${(full.hashtags||[]).join(' ')} ${(full.questions||[]).map(q=>q.prompt+' '+q.explanation).join(' ')}`.toLowerCase();
+    const factsHtml = (full.funFacts||[]).length ? `<div class="p-sub">Fun facts</div><ul class="p-facts">${full.funFacts.map(f=>`<li>${esc2(f)}</li>`).join('')}</ul>` : '';
+    const mechHtml = full.mechanism ? `<div class="p-sub">Mechanism</div><p>${esc2(full.mechanism)}</p>` : '';
+    const hashtagsHtml = (full.hashtags||[]).length ? `<div class="p-sub">Hashtags</div><div class="p-chips">${full.hashtags.map(h=>`<span class="p-chip">#${esc2(h)}</span>`).join('')}</div>` : '';
+    const imagesNote = (full.images||[]).length ? `<div class="p-sub">Images</div><p>${full.images.length} image(s) attached</p>` : '';
+    const questionsHtml = qCount
+      ? `<div class="p-sub">Questions (${qCount})</div>` + full.questions.map(q=>`
+          <div class="struct-q">
+            <div class="struct-q-prompt">${esc2(q.prompt)}</div>
+            ${q.options.map((op,i)=>`<div class="struct-q-opt${i===q.correctIndex?' correct':''}">${i===q.correctIndex?'✓':'·'} ${esc2(op)}</div>`).join('')}
+            <div class="struct-q-explain">${esc2(q.explanation)}</div>
+          </div>`).join('')
+      : `<div class="struct-empty" style="margin-left:0;">— no questions yet for this item —</div>`;
+    const html = `
+      <details class="struct-item-toggle" data-search="${searchBlob.replace(/"/g,'&quot;')}">
+        <summary>${it.label}${subtitle?` <span class="struct-course">· ${subtitle}</span>`:''} <span class="struct-qbadge">${qCount} Q${qCount===1?'':'s'}</span></summary>
+        <div class="struct-item-detail">
+          <p>${esc2(full.description||'')}</p>
+          ${mechHtml}
+          ${factsHtml}
+          ${hashtagsHtml}
+          ${imagesNote}
+          <button type="button" class="struct-edit-link" data-edit-item="${it.id}">✏️ Edit this item</button>
+          <button type="button" class="struct-edit-link" data-add-question="${it.id}">➕ Add a question here</button>
+          ${questionsHtml}
+        </div>
+      </details>`;
+    return { html, qCount };
+  }
+  // Jumps to the New Question tab with Theme/Topic/Item already picked for
+  // you — the whole point is skipping the "select theme, select topic,
+  // find the item in a long dropdown" steps when you already know exactly
+  // which item you're adding a question to.
+  function jumpToNewQuestionForItem(itemId){
+    const known = KNOWN_ITEMS.find(it=>it.id===itemId);
+    if(!known) return;
+    showTab('question');
+    q_theme.value = known.theme;
+    q_theme.dispatchEvent(new Event('change'));
+    q_topic.value = known.topic;
+    q_topic.dispatchEvent(new Event('change'));
+    q_itemSelect.value = itemId;
+    q_itemSelect.dispatchEvent(new Event('change'));
+  }
+  function wireEditButtons(container){
+    container.querySelectorAll('[data-edit-item]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        showTab('item');
+        i_editModeToggle.checked = true;
+        i_editModeToggle.dispatchEvent(new Event('change'));
+        i_editItemSelect.value = btn.dataset.editItem;
+        i_editItemSelect.dispatchEvent(new Event('change'));
+      });
+    });
+    container.querySelectorAll('[data-add-question]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        jumpToNewQuestionForItem(btn.dataset.addQuestion);
+      });
+    });
+  }
+  function renderStructureList(){
+    let html = '';
+    let totalTopics=0, totalItems=0, totalQuestions=0, pendingCount=0;
+    KNOWN_THEMES.forEach(theme=>{
+      const topicsInTheme = Object.entries(KNOWN_TOPICS).filter(([id,t])=>t.theme===theme.id);
+      let themeItems=0, themeQuestions=0;
+      let themeHtml = '';
+      if(!topicsInTheme.length){ themeHtml += `<div class="struct-empty">— no topics yet —</div>`; }
+      topicsInTheme.forEach(([topicId, topic])=>{
+        totalTopics++;
+        const itemsInTopic = KNOWN_ITEMS.filter(it=>it.theme===theme.id && it.topic===topicId);
+        let topicItems=0, topicQuestions=0;
+        let topicHtml = '';
+        if(!itemsInTopic.length){ topicHtml += `<div class="struct-empty">— no items yet —</div>`; }
+        itemsInTopic.forEach(it=>{
+          topicItems++; totalItems++;
+          const full = RD.THEMES[theme.id]?.topics?.[topicId]?.items?.[it.id];
+          const courseStr = it.course ? courseDisplayString(it.course, it.class) : '';
+          if(!full) pendingCount++;
+          const { html: itemHtml, qCount } = renderItemToggleHtml(it, full, courseStr);
+          topicQuestions += qCount; totalQuestions += qCount;
+          topicHtml += itemHtml;
+        });
+        themeItems += topicItems; themeQuestions += topicQuestions;
+        themeHtml += `<div class="struct-topic">${topic.label} <span class="struct-counts">${topicItems} item${topicItems===1?'':'s'} · ${topicQuestions} question${topicQuestions===1?'':'s'}</span></div>${topicHtml}`;
+      });
+      html += `<div class="struct-theme">${theme.label} <span class="struct-counts">${themeItems} item${themeItems===1?'':'s'} · ${themeQuestions} question${themeQuestions===1?'':'s'}</span></div>${themeHtml}`;
+    });
+    structureList.innerHTML = html;
+    structStats.innerHTML = `<span><b>${KNOWN_THEMES.length}</b> themes</span><span><b>${totalTopics}</b> topics</span><span><b>${totalItems}</b> items</span><span><b>${totalQuestions}</b> questions</span>${pendingCount?`<span style="color:#ffab4d;"><b>${pendingCount}</b> pending merge</span>`:''}`;
+    wireEditButtons(structureList);
+    applyStructSearch();
+    renderCourseStructureList();
+    renderHashtagStructureList();
+  }
+  // Search filters both plain rows and toggle items by their data-search
+  // text — a hit inside a toggle auto-expands it so the match is visible
+  // without having to click through everything by hand. Covers both trees.
+  function applyStructSearch(){
+    const q = structSearchInput.value.trim().toLowerCase().replace(/^#/,'');
+    [structureList, courseStructureList, hashtagStructureList].forEach(root=>{
+      root.querySelectorAll('details.struct-item-toggle[data-search]').forEach(det=>{
+        const match = !q || (det.dataset.search||'').includes(q);
+        det.style.display = match ? '' : 'none';
+        if(q && match) det.open = true;
+      });
+    });
+  }
+  structSearchInput.addEventListener('input', applyStructSearch);
+  const courseStructureList = document.getElementById('courseStructureList');
+  function renderCourseStructureList(){
+    const courses = Object.values(KNOWN_COURSES);
+    if(!courses.length){ courseStructureList.innerHTML = `<div class="struct-empty">— no courses yet —</div>`; return; }
+    let html = '';
+    courses.forEach(c=>{
+      const classes = Object.entries(c.classes);
+      let courseItems=0, courseQuestions=0;
+      let classesHtml = '';
+      if(!classes.length){ classesHtml += `<div class="struct-empty">— no classes yet —</div>`; }
+      classes.forEach(([key, k])=>{
+        const itemsInClass = KNOWN_ITEMS.filter(it=>it.course===c.code && it.class===key);
+        let classQuestions = 0;
+        let itemsHtml = '';
+        if(!itemsInClass.length){
+          itemsHtml = `<div class="struct-empty">— nothing tagged with this class yet —</div>`;
+        } else {
+          itemsInClass.forEach(it=>{
+            const full = RD.THEMES[it.theme]?.topics?.[it.topic]?.items?.[it.id];
+            const themeLabel = (KNOWN_THEMES.find(t=>t.id===it.theme)||{}).label || it.theme;
+            const topicLabel = (KNOWN_TOPICS[it.topic]||{}).label || it.topic;
+            const { html: itemHtml, qCount } = renderItemToggleHtml(it, full, `${themeLabel} · ${topicLabel}`);
+            classQuestions += qCount;
+            itemsHtml += itemHtml;
+          });
+        }
+        courseItems += itemsInClass.length; courseQuestions += classQuestions;
+        classesHtml += `
+          <details class="struct-item-toggle" style="margin-left:10px;">
+            <summary>${key} — ${k.label} <span class="struct-qbadge">${itemsInClass.length} item${itemsInClass.length===1?'':'s'} · ${classQuestions} Q${classQuestions===1?'':'s'}</span></summary>
+            <div class="struct-item-detail" style="background:transparent;border:none;padding:2px 0 2px 12px;">${itemsHtml}</div>
+          </details>`;
+      });
+      html += `<div class="struct-theme">${c.code} <span class="struct-course">· ${c.label}</span> <span class="struct-counts">${courseItems} item${courseItems===1?'':'s'} · ${courseQuestions} question${courseQuestions===1?'':'s'}</span></div>${classesHtml}`;
+    });
+    courseStructureList.innerHTML = html;
+    wireEditButtons(courseStructureList);
+  }
+
+  const hashtagStructureList = document.getElementById('hashtagStructureList');
+  const knownHashtagsDatalist = document.getElementById('knownHashtagsList');
+  function renderHashtagStructureList(){
+    const tagMap = {}; // tag -> [{ it, full, subtitle }]
+    KNOWN_ITEMS.forEach(it=>{
+      const full = RD.THEMES[it.theme]?.topics?.[it.topic]?.items?.[it.id];
+      if(!full) return;
+      const themeLabel = (KNOWN_THEMES.find(t=>t.id===it.theme)||{}).label || it.theme;
+      const topicLabel = (KNOWN_TOPICS[it.topic]||{}).label || it.topic;
+      (full.hashtags||[]).forEach(tag=>{
+        (tagMap[tag] = tagMap[tag] || []).push({ it, full, subtitle: `${themeLabel} · ${topicLabel}` });
+      });
+    });
+    const allTags = Object.keys(tagMap).sort((a,b)=>a.localeCompare(b));
+    knownHashtagsDatalist.innerHTML = allTags.map(t=>`<option value="${esc2(t)}">`).join('');
+    if(!allTags.length){ hashtagStructureList.innerHTML = `<div class="struct-empty">— no hashtags yet —</div>`; return; }
+    let html = '';
+    allTags.forEach(tag=>{
+      const entries = tagMap[tag];
+      let itemsHtml = '';
+      entries.forEach(({it, full, subtitle})=>{
+        itemsHtml += renderItemToggleHtml(it, full, subtitle).html;
+      });
+      html += `
+        <details class="struct-item-toggle" style="margin-left:10px;">
+          <summary>#${esc2(tag)} <span class="struct-qbadge">${entries.length} item${entries.length===1?'':'s'}</span></summary>
+          <div class="struct-item-detail" style="background:transparent;border:none;padding:2px 0 2px 12px;">${itemsHtml}</div>
+        </details>`;
+    });
+    hashtagStructureList.innerHTML = html;
+    wireEditButtons(hashtagStructureList);
+  }
+
+  // ================= TEAM QUEUE (synced via Firebase, local fallback offline) =================
+  let batch = {}; // key -> entry — key is a Firebase push-id when synced, or "local-N" when offline
+  let _localKeyN = 0;
+  const batchList = document.getElementById('batchList');
+  function attachQueueListener(){
+    fbOnValue(fbRef(fbdb, 'contributions'), (snap)=>{
+      batch = snap.val() || {};
+      renderBatch();
+    });
+  }
+  // Adds one entry to the queue. Fires and forgets the Firebase write — the
+  // onValue listener above will re-render once it round-trips, so every
+  // contributor (including this one) sees the same live list. Falls back
+  // to a local-only entry, rendered immediately, if Firebase never connected.
+  function pushToQueue(entry){
+    entry.contributorName = currentContributorName();
+    entry.createdAt = Date.now();
+    if(firebaseReady){
+      fbPush(fbRef(fbdb, 'contributions'), entry).catch(err=>{
+        console.warn('[Contributor] Could not write to the shared queue — saving locally instead.', err);
+        batch[`local-${++_localKeyN}`] = entry;
+        renderBatch();
+      });
+    } else {
+      batch[`local-${++_localKeyN}`] = entry;
+      renderBatch();
+    }
+  }
+  function removeFromQueue(key){
+    if(firebaseReady && !key.startsWith('local-')){
+      fbRemove(fbRef(fbdb, `contributions/${key}`));
+    } else {
+      delete batch[key];
+      renderBatch();
+    }
+  }
+  function renderBatch(){
+    const entries = Object.entries(batch).sort((a,b)=> (a[1].createdAt||0) - (b[1].createdAt||0));
+    if(!entries.length){
+      batchList.innerHTML = `<p class="batch-empty">Nothing in the queue yet — fill in a form above and click "Add to batch".</p>`;
+      return;
+    }
+    batchList.innerHTML = '';
+    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️' };
+    entries.forEach(([key, entry])=>{
+      const row = document.createElement('div');
+      row.className = 'queue-item';
+      row.innerHTML = `<div>
+          <div class="qi-label">${icons[entry.type]||'📄'} <b>${entry.title}</b> — ${entry.note}</div>
+          <div class="qi-meta">by ${entry.contributorName||'Anonymous'}${entry.createdAt?' · '+new Date(entry.createdAt).toLocaleString():''}</div>
+        </div>
+        <button class="list-remove" type="button" title="Remove once Eason's merged this">✕</button>`;
+      row.querySelector('.list-remove').addEventListener('click', ()=> removeFromQueue(key));
+      batchList.appendChild(row);
+    });
+  }
+  function fullBatchText(){
+    const entries = Object.values(batch).sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+    const header = `// Team queue snapshot — ${new Date().toLocaleString()}\n// ${entries.length} item(s) below.\n\n`;
+    const items = entries.filter(b=>b.type==='item');
+    const editItems = entries.filter(b=>b.type==='edit-item');
+    const questions = entries.filter(b=>b.type==='question');
+    const courses = entries.filter(b=>b.type==='course');
+    let out = header;
+    if(courses.length){ out += `// ---- New themes ----\n` + courses.map(c=>`// by ${c.contributorName}\n${c.code}`).join('\n\n') + '\n\n'; }
+    if(items.length){ out += `// ---- New study guide items ----\n` + items.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
+    if(editItems.length){ out += `// ---- Edits to existing items ----\n` + editItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
+    if(questions.length){ out += `// ---- New questions ----\n` + questions.map(q=>`// by ${q.contributorName}\n${q.code}`).join('\n\n') + '\n'; }
+    return out.trim();
+  }
+  renderBatch();
+  document.getElementById('batchCopyAll').addEventListener('click', ()=>{
+    if(!Object.keys(batch).length){ toast('Queue is empty'); return; }
+    copyText(fullBatchText());
+  });
+  document.getElementById('batchDownload').addEventListener('click', ()=>{
+    if(!Object.keys(batch).length){ toast('Queue is empty'); return; }
+    const blob = new Blob([fullBatchText()], {type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `contribution-queue-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+  });
+
+  function renderAll(){ renderItem(); renderQuestion(); renderCourse(); renderHashtagStructureList(); }
+  renderAll();
+</script>
+</body>
+</html>
