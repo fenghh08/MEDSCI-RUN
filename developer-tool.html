@@ -482,6 +482,24 @@
         </div>
       </div>
     </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>📄 Bulk-add questions from CSV — for one existing item at a time</h2>
+      <p class="card-sub">Pick the item these questions belong to, then paste CSV text (with a header row) covering just the question fields — theme/topic/item are already fixed by your pick above, so the CSV doesn't need to repeat them. Columns, any order, matched by name: <b>prompt, optionA, optionB, optionC, optionD, correct</b> (A/B/C/D), <b>explanation, hashtags</b> (separate multiple with a semicolon). Each valid row becomes its own entry in the queue below, exactly as if you'd added it one at a time.</p>
+      <label class="field">
+        <span class="fl-label">Which item are these questions for? <span class="req">*</span></span>
+        <select id="csv_itemSelect"></select>
+      </label>
+      <label class="field">
+        <span class="fl-label">Paste CSV text</span>
+        <textarea id="csv_textarea" rows="8" placeholder="prompt,optionA,optionB,optionC,optionD,correct,explanation,hashtags
+&quot;Which translocation causes CML?&quot;,t(9;22),t(15;17),t(8;14),t(12;21),A,&quot;t(9;22) creates BCR-ABL1.&quot;,Leukemia"></textarea>
+      </label>
+      <div id="csv_preview" style="margin:10px 0;font-size:12px;color:var(--hud-dim);"></div>
+      <div class="btn-row">
+        <button class="primary" id="csv_parseBtn">Parse &amp; add all to queue</button>
+      </div>
+    </div>
   </div>
 
   <!-- ================= THEME FORM ================= -->
@@ -532,6 +550,34 @@
       <button class="primary" id="batchCopyAll">Copy entire queue</button>
       <button class="secondary" id="batchDownload">Download as .txt</button>
     </div>
+  </div>
+
+  <!-- ================= MAINTAINER: MERGE INTO game-data.js ================= -->
+  <div class="batch" style="border-color:var(--good);">
+    <h2>🛠 Merge the queue into a ready-to-paste game-data.js</h2>
+    <p class="card-sub">For whoever actually maintains game-data.js. Takes everything currently in the queue above and folds it into a full copy of the game data — themes, topics, and items included — so you copy once and replace the whole file, instead of finding and pasting each section by hand. Nothing here writes to any file directly; you still paste the result over game-data.js yourself.</p>
+    <div class="btn-row">
+      <button class="primary" id="mergeGenerateBtn">🧬 Generate merged game-data.js</button>
+      <span id="mergeStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
+    </div>
+    <div id="mergeOutputWrap" style="display:none;margin-top:14px;">
+      <pre class="code-out" id="mergeOutput" style="max-height:340px;"></pre>
+      <div class="btn-row">
+        <button class="primary" id="mergeCopyBtn">Copy the whole file</button>
+        <button class="secondary" id="mergeDownloadBtn">Download as game-data.js</button>
+      </div>
+    </div>
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--hud-dim);">⚙️ Update the template (only needed if you've hand-edited GAME_CONFIG, STAGES, or the header comments directly — the merge otherwise already reads the current game-data.js live)</summary>
+      <div style="margin-top:10px;">
+        <p class="card-sub" style="margin-top:0;">Paste your current, working game-data.js here to refresh the static parts the merge carries through unchanged (everything outside COURSES/TOPICS/THEMES — comments, GAME_CONFIG, LIFE_CONFIG, STAGES, etc.). This is stored in this browser only.</p>
+        <textarea id="templateInput" rows="6" placeholder="Paste the full contents of your current game-data.js here..."></textarea>
+        <div class="btn-row">
+          <button class="secondary" id="templateUpdateBtn">Extract &amp; save template</button>
+          <span id="templateStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
+        </div>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -855,11 +901,12 @@
       resolve(){
         const spanning = spansBlock.classList.contains('show') && spansText.value.trim();
         if(spanning){
-          return { course:'', class:'', addCourseSnippet:'', addClassSnippet:'', usingNewCourse:false, usingNewClass:false, relatedCourseOverride: spansText.value.trim() };
+          return { course:'', class:'', addCourseSnippet:'', addClassSnippet:'', usingNewCourse:false, usingNewClass:false, relatedCourseOverride: spansText.value.trim(), newCourseData:null, newClassData:null };
         }
         const usingNewCourse = newCourseBlock.classList.contains('show');
         const usingNewClass = newClassBlock.classList.contains('show');
         let course = '', cls = '', addCourseSnippet = '', addClassSnippet = '';
+        let newCourseData = null, newClassData = null;
 
         if(usingNewCourse){
           const code = (newCourseCode.value.trim() || 'NEWCOURSE').toUpperCase();
@@ -869,6 +916,7 @@
           const firstClassLabel = usingNewClass ? (newClassLabel.value.trim() || 'Untitled class') : '';
           if(usingNewClass) cls = firstClassKey;
           addCourseSnippet = `// new course — add to COURSES in game-data.js\nCOURSES['${code}'] = {\n  code:'${code}', label:'${esc(label)}',\n  classes:{${usingNewClass ? `\n    '${firstClassKey}': { label:'${esc(firstClassLabel)}' },\n  ` : ''}}\n};`;
+          newCourseData = { code, label, classKey: usingNewClass?firstClassKey:'', classLabel: usingNewClass?firstClassLabel:'' };
         } else if(courseSel.value){
           course = courseSel.value;
           if(usingNewClass){
@@ -876,11 +924,12 @@
             const label = newClassLabel.value.trim() || 'Untitled class';
             cls = key;
             addClassSnippet = `// new class — add to COURSES.${course}.classes in game-data.js\n'${key}': { label:'${esc(label)}' },`;
+            newClassData = { course, key, label };
           } else {
             cls = classSel.value;
           }
         }
-        return { course, class: cls, addCourseSnippet, addClassSnippet, usingNewCourse, usingNewClass, relatedCourseOverride: '' };
+        return { course, class: cls, addCourseSnippet, addClassSnippet, usingNewCourse, usingNewClass, relatedCourseOverride: '', newCourseData, newClassData };
       },
       // Actually registers a newly-typed course/class into KNOWN_COURSES —
       // called only when the item/question is actually added to the batch,
@@ -1173,9 +1222,10 @@
       KNOWN_ITEMS.push({ id:o.itemId, theme:o.theme, topic:o.topicId, label:o.label, course:o.course, class:o.class }); // so it can be linked to from the Question tab, and shown in the structure list
       if(o.usingNewTopic && !KNOWN_TOPICS[o.topicId]) KNOWN_TOPICS[o.topicId] = { label:o.newTopicLabel||o.topicId, theme:o.theme };
     }
-    pushToQueue({ type: o.editingItemId ? 'edit-item' : 'item', title:o.label, code:itemCodeString(o), note:`${o.editingItemId?'Edit · ':''}${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topicId}${o.images.length?` · ${o.images.length} image file(s) needed`:''}` });
+    pushToQueue({ type: o.editingItemId ? 'edit-item' : 'item', title:o.label, code:itemCodeString(o), note:`${o.editingItemId?'Edit · ':''}${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topicId}${o.images.length?` · ${o.images.length} image file(s) needed`:''}`, data:o });
     refreshQuestionItemSelect();
     refreshEditItemSelect();
+    refreshCsvItemSelect();
     renderStructureList();
     i_coursePicker.refresh();
     refreshCourseSelects();
@@ -1278,7 +1328,7 @@
     if(!q_prompt.value.trim()){ toast('Write the question first'); return; }
     const o = buildQuestionObject();
     q_coursePicker.commit(o.courseInfo);
-    pushToQueue({ type:'question', title:o.prompt.slice(0,50), code:questionCodeString(o), note:`${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topic}` });
+    pushToQueue({ type:'question', title:o.prompt.slice(0,50), code:questionCodeString(o), note:`${KNOWN_THEMES.find(t=>t.id===o.theme).label} · ${o.topic}`, data:o });
     refreshCourseSelects();
     renderStructureList();
     toast('Added to queue');
@@ -1289,6 +1339,110 @@
     q_customItemBlock.classList.remove('show'); q_itemSelect.disabled = false;
     q_coursePicker.resetNewBlocks();
     renderQuestion();
+  });
+
+  // ================= CSV IMPORT (questions, existing items only) =================
+  // A small, dependency-free CSV parser -- handles quoted fields, commas and
+  // newlines inside quotes, and doubled "" as an escaped quote. Prompts and
+  // explanations routinely contain real commas, so a naive .split(',') would
+  // silently corrupt rows; this follows the same quoting rules Excel/Sheets
+  // use when they export CSV, so pasting straight from Sheets just works.
+  function parseCSV(text){
+    const rows = []; let row = [], field = '', inQuotes = false;
+    for(let i=0; i<text.length; i++){
+      const c = text[i], next = text[i+1];
+      if(inQuotes){
+        if(c === '"' && next === '"'){ field += '"'; i++; }
+        else if(c === '"'){ inQuotes = false; }
+        else { field += c; }
+      } else {
+        if(c === '"'){ inQuotes = true; }
+        else if(c === ','){ row.push(field); field = ''; }
+        else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+        else if(c === '\r'){ /* skip, \n (if present) closes the row */ }
+        else { field += c; }
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(r => r.length > 1 || (r[0]||'').trim() !== '');
+  }
+
+  const csv_itemSelect = document.getElementById('csv_itemSelect');
+  const csv_textarea = document.getElementById('csv_textarea');
+  const csv_preview = document.getElementById('csv_preview');
+  function refreshCsvItemSelect(){
+    const current = csv_itemSelect.value;
+    csv_itemSelect.innerHTML = KNOWN_ITEMS
+      .map(it=>({ it, themeLabel:(KNOWN_THEMES.find(t=>t.id===it.theme)||{}).label||it.theme, topicLabel:(KNOWN_TOPICS[it.topic]||{}).label||it.topic }))
+      .sort((a,b)=> a.themeLabel.localeCompare(b.themeLabel) || a.topicLabel.localeCompare(b.topicLabel) || a.it.label.localeCompare(b.it.label))
+      .map(({it,themeLabel,topicLabel})=>`<option value="${it.id}">${themeLabel} · ${topicLabel} · ${it.label}</option>`).join('');
+    if([...csv_itemSelect.options].some(o=>o.value===current)) csv_itemSelect.value = current;
+  }
+  refreshCsvItemSelect();
+
+  // Parses the pasted CSV into { valid: [...built question objects], errors: [...] }
+  // without touching the queue -- used for both the live preview count and
+  // the actual add-all-to-queue action, so what you're told matches what happens.
+  function parseCsvQuestions(){
+    const known = KNOWN_ITEMS.find(it=>it.id===csv_itemSelect.value);
+    if(!known) return { valid:[], errors:['Pick an item first.'] };
+    const rows = parseCSV(csv_textarea.value);
+    if(rows.length < 2) return { valid:[], errors:['Paste a header row plus at least one question row.'] };
+    const header = rows[0].map(h=>h.trim().toLowerCase());
+    const col = name => header.indexOf(name);
+    const idx = {
+      prompt: col('prompt'), a: col('optiona'), b: col('optionb'), c: col('optionc'), d: col('optiond'),
+      correct: col('correct'), explanation: col('explanation'), hashtags: col('hashtags'),
+    };
+    const missingCols = ['prompt','a','b','c','d','correct','explanation'].filter(k=>idx[k]<0);
+    if(missingCols.length) return { valid:[], errors:[`Missing required column(s): ${missingCols.map(k=>({a:'optionA',b:'optionB',c:'optionC',d:'optionD'}[k]||k)).join(', ')}.`] };
+    const valid = [], errors = [];
+    for(let r=1; r<rows.length; r++){
+      const row = rows[r];
+      if(row.every(f=>(f||'').trim()==='')) continue; // silently skip fully-blank rows
+      const prompt = (row[idx.prompt]||'').trim();
+      const options = [row[idx.a], row[idx.b], row[idx.c], row[idx.d]].map(v=>(v||'').trim());
+      const correctLetter = (row[idx.correct]||'').trim().toUpperCase();
+      const explanation = (row[idx.explanation]||'').trim();
+      const hashtags = idx.hashtags>=0 ? (row[idx.hashtags]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
+      const rowNum = r+1; // 1-indexed, matches what a person sees in a spreadsheet
+      if(!prompt){ errors.push(`Row ${rowNum}: missing prompt, skipped.`); continue; }
+      if(options.some(o=>!o)){ errors.push(`Row ${rowNum}: needs all four options, skipped.`); continue; }
+      const correctIndex = 'ABCD'.indexOf(correctLetter);
+      if(correctIndex<0){ errors.push(`Row ${rowNum}: Correct must be A, B, C, or D (got "${correctLetter}"), skipped.`); continue; }
+      if(!explanation){ errors.push(`Row ${rowNum}: missing explanation, skipped.`); continue; }
+      valid.push({
+        theme: known.theme, topic: known.topic, itemId: known.id,
+        qId: 'q-' + known.topic + '-' + randSuffix(),
+        prompt, options, correctIndex, explanation, hashtags,
+        course: '', class: '', relatedCourseOverride: '',
+        addCourseSnippet: '', addClassSnippet: '',
+        courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
+      });
+    }
+    return { valid, errors };
+  }
+  function renderCsvPreview(){
+    if(!csv_textarea.value.trim()){ csv_preview.textContent = ''; return; }
+    const { valid, errors } = parseCsvQuestions();
+    let msg = valid.length ? `✅ ${valid.length} question${valid.length===1?'':'s'} ready to add.` : '';
+    if(errors.length) msg += (msg?' ':'') + `⚠️ ${errors.join(' ')}`;
+    csv_preview.textContent = msg;
+  }
+  csv_textarea.addEventListener('input', renderCsvPreview);
+  csv_itemSelect.addEventListener('change', renderCsvPreview);
+  document.getElementById('csv_parseBtn').addEventListener('click', ()=>{
+    const { valid, errors } = parseCsvQuestions();
+    if(!valid.length){ toast(errors[0] || 'Nothing to add'); return; }
+    const known = KNOWN_ITEMS.find(it=>it.id===csv_itemSelect.value);
+    const themeLabel = (KNOWN_THEMES.find(t=>t.id===known.theme)||{}).label || known.theme;
+    valid.forEach(o=>{
+      pushToQueue({ type:'question', title:o.prompt.slice(0,50), code:questionCodeString(o), note:`${themeLabel} · ${o.topic} · via CSV`, data:o });
+    });
+    renderStructureList();
+    toast(`Added ${valid.length} question${valid.length===1?'':'s'} to queue`);
+    csv_textarea.value = '';
+    csv_preview.textContent = '';
   });
 
   // ================= COURSE FORM =================
@@ -1322,7 +1476,7 @@
     if(!c_label.value.trim()){ toast('Give it a name first'); return; }
     const o = buildCourseObject();
     KNOWN_THEMES.push({ id:o.id, label:o.label });
-    pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new theme' });
+    pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new theme', data:o });
     [i_theme, q_theme].forEach(sel=>fillThemeSelect(sel));
     renderStructureList();
     toast('Added to queue');
@@ -1636,6 +1790,361 @@
     a.href = URL.createObjectURL(blob);
     a.download = `contribution-queue-${new Date().toISOString().slice(0,10)}.txt`;
     a.click();
+  });
+
+  // ================= MAINTAINER: MERGE QUEUE -> game-data.js =================
+  // Regenerates a complete, ready-to-paste game-data.js: everything the
+  // contributor pipeline can touch (COURSES, TOPICS, THEMES) gets rebuilt
+  // fresh from the currently-loaded game-data.js PLUS whatever's still in
+  // the queue; everything else (GAME_CONFIG, LIFE_CONFIG, STAGES, header
+  // comments, ...) is carried through unchanged from a template, since
+  // contributor.html never touches those sections at all.
+  const DEFAULT_TEMPLATE = {
+    before: `/* ============================================================================
+   game-data.js — all game CONTENT for Runner Game (cancer-runner-group.html)
+   and the Contributor tool (contributor.html) live in this one file.
+
+   Nothing in here is executable game logic — it's just numbers, labels and
+   study-guide content. The game and the contributor tool both load this file
+   as a plain <script> (NOT type="module", so it still works when you just
+   double-click the .html file — no local server needed) and read everything
+   off \`window.RUNNER_DATA\`.
+
+   HOW TO ADD CONTENT
+   -------------------
+   • Easiest: open contributor.html, fill in the form, it writes the object
+     literal for you in the exact shape below — paste it in.
+   • By hand: follow the shape of an existing entry and keep the same keys.
+
+   SHAPE OVERVIEW
+   ---------------
+   COURSES        — real university courses (e.g. MEDS3002), each broken into
+                     Classes (individual lectures, e.g. "L14").
+   TOPICS         — the fixed topic taxonomy (genetics, immunology, ...).
+   THEMES         — Theme (e.g. "cancer") → Topic → study-guide Item. Each
+                     item can point at a COURSES entry via \`course\` + \`class\`,
+                     and carries its own \`questions\` array — the MCQs players
+                     get asked about that item. A question only needs its own
+                     \`course\`/\`class\` (or, rarely, a literal \`relatedCourse\`
+                     string) if it genuinely differs from its item's — most
+                     just inherit the item's.
+   STAGES         — Theme → ordered list of Runner-mode stages.
+   RUNNABLE_THEMES— which theme ids have a STAGES entry (playable in Runner
+                     mode vs. Study & Practice-only).
+   GAME_CONFIG    — every tunable gameplay number.
+   LIFE_CONFIG    — per-theme label/icon for the "life" resource.
+   COMPLETE_SCENARIO — text shown after the last stage.
+   ============================================================================ */
+(function(){
+
+/* ======================================================================
+   COURSES — real university courses, broken into Classes (individual
+   lectures). Items and questions reference these via \`course\` (the course
+   code, e.g. 'MEDS3002') + \`class\` (the class key, e.g. 'L14') instead of
+   writing the whole label out by hand every time. The display string
+   ("MEDS3002 · L14 · Cancer Hallmarks") is generated automatically — see
+   courseDisplayString() in cancer-runner-group.html.
+   ====================================================================== */
+  `,
+    betweenCoursesTopics: `
+
+/* ======================================================================
+   TOPICS — the fixed taxonomy every question/item is filed under.
+   ====================================================================== */
+  `,
+    betweenTopicsThemes: `
+
+/* ======================================================================
+   GAME_CONFIG — every tunable number lives here in one place.
+   ====================================================================== */
+  const GAME_CONFIG = {
+    baseSpeed: 700,            // px/s at Stage I
+    speedRampPerStage: 20,     // added per stage index (0-based) — one-time bump on stage change
+    speedRampPerSecond: 10,    // added continuously for every second survived — this is what makes it feel gradual
+    maxSpeed: 900,             // speed never exceeds this
+    startingGlucose: 100,
+    glucosePickupValue: 5,     // gained per life pickup collected
+    wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
+    obstacleSpawnBaseMs: 900,  // topic-block spawn interval = base + random(0..rand)
+    obstacleSpawnRandMs: 300,
+    glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
+    glucoseSpawnRandMs: 300,
+    initialObstacleDelayMs: 1200, // delay before the very first topic block spawns
+    initialGlucoseDelayMs: 500,   // delay before the very first life pickup spawns
+    bombDamage: 40,               // life lost when a bomb is hit (instant, no question)
+    bombSpawnBaseMs: 1000,        // bomb spawn interval — base + random(0..rand)
+    bombSpawnRandMs: 1000,
+    scoreCorrectWeight: 50,    // Group Race ranking score = correct*this - incorrect*this + life*this + stageIndex*stageWeight
+    scoreIncorrectWeight: 35,
+    scoreLifeWeight: 1,
+    stageWeight: 300,          // added per stage reached (stageIndex is 0-based, so Stage I contributes 0)
+  };
+
+/* ======================================================================
+   LIFE — the "health" resource is themed per Runner-playable theme. Change
+   the label/icon here any time — every place it's shown (HUD, pickups,
+   penalties, the bomb warning) reads from this automatically.
+   ====================================================================== */
+  const LIFE_CONFIG = {
+    cancer:       { label:'Glucose', icon:'🩸' },
+    biochemistry: { label:'ATP',     icon:'⚡' },
+  };
+
+/* ======================================================================
+   THEMES — Theme -> Topic -> Item. Each item can carry "hashtags" (which
+   cancer type / sub-area it belongs to, e.g. ['Leukemia']), course + class
+   fields pointing into COURSES above (e.g. course:'MEDS3002', class:'L14'),
+   and its own "questions" array — the MCQs players get asked when they hit
+   this item's topic in Runner mode or match it in Study & Practice. A
+   question only needs its own course/class if it genuinely differs from
+   its item's (e.g. a question spanning several classes at once) — most
+   questions just inherit the item's.
+   ====================================================================== */
+  `,
+    afterThemes: `
+
+/* ======================================================================
+   STAGES — per theme. Each stage has correct-answer requirements (reset
+   each stage) and a narrative shown on the transition screen before that
+   stage begins.
+   ====================================================================== */
+  const STAGES = {
+    cancer: [
+      /* "scenario" is patient-facing narrative — this is also where a real
+         case study can be dropped in later (per stage). */
+      { n:1, roman:'I', requirements:{ genetics:10 },
+        scenario:"Patient presents with fatigue and unexplained bruising. Bloodwork shows an abnormal white cell count — the care team orders genetic testing to find out exactly what's driving it." },
+      { n:2, roman:'II', requirements:{ genetics:5, immunology:10 },
+        scenario:"The genetic picture is in. Now the patient's own immune system is in the fight — how well it can recognise and respond to the disease will shape what comes next." },
+      { n:3, roman:'III', requirements:{ genetics:3, immunology:8, pharmacology:10 },
+        scenario:"With the genetics and immunology understood, the patient starts treatment. Which drugs will actually work against this specific leukemia?" },
+      { n:4, roman:'IV', requirements:{ genetics:3, immunology:5, pharmacology:7, oncology:10 },
+        scenario:"The patient is now deep into treatment. Staging, complications, and what happens next define the road ahead." },
+    ],
+    // Deliberately short right now — biochemistry only has a handful of
+    // seed questions so far. Expand requirements as you add more content
+    // (see the contributor tool or dev notes).
+    biochemistry: [
+      { n:1, roman:'I', requirements:{ metabolism:2 },
+        scenario:"You're tracing how a cell fuels itself — starting with how it handles glucose and energy production." },
+      { n:2, roman:'II', requirements:{ metabolism:1, molecularBiology:1 },
+        scenario:"From metabolism to the molecular machinery that reads and copies the genome — the next layer of the picture." },
+    ],
+  };
+  const COMPLETE_SCENARIO = "You've worked through the full case — review your answers below, or start again to reinforce what you've learned. (Real case studies coming soon.)";
+
+  const RUNNABLE_THEMES = ['cancer', 'biochemistry']; // themes with a matching STAGES config, playable in Runner mode
+
+
+  window.RUNNER_DATA = {
+    COURSES, TOPICS, GAME_CONFIG, LIFE_CONFIG, THEMES,
+    STAGES, COMPLETE_SCENARIO, RUNNABLE_THEMES,
+  };
+
+})();
+`,
+  };
+
+  function loadTemplate(){
+    try {
+      const stored = localStorage.getItem('gameDataTemplate');
+      if(stored) return JSON.parse(stored);
+    } catch(e){ /* fall through to default */ }
+    return DEFAULT_TEMPLATE;
+  }
+  function extractTemplateParts(fullText){
+    function findDeclEnd(startIdx){
+      const m = /\n  \};/.exec(fullText.slice(startIdx));
+      if(!m) return -1;
+      return startIdx + m.index + m[0].length;
+    }
+    const coursesDecl = fullText.indexOf('const COURSES = {');
+    const topicsDecl = fullText.indexOf('const TOPICS = {');
+    const themesDecl = fullText.indexOf('const THEMES = {');
+    if(coursesDecl<0||topicsDecl<0||themesDecl<0) return null;
+    const coursesEnd = findDeclEnd(coursesDecl);
+    const topicsEnd = findDeclEnd(topicsDecl);
+    const themesEnd = findDeclEnd(themesDecl);
+    if(coursesEnd<0||topicsEnd<0||themesEnd<0) return null;
+    return {
+      before: fullText.slice(0, coursesDecl),
+      betweenCoursesTopics: fullText.slice(coursesEnd, topicsDecl),
+      betweenTopicsThemes: fullText.slice(topicsEnd, themesDecl),
+      afterThemes: fullText.slice(themesEnd),
+    };
+  }
+
+  // Generic serializer -- one field per line, every key quoted regardless
+  // of content, matching the convention the rest of game-data.js already
+  // uses (and specifically the two real bugs this avoided: hyphenated keys
+  // breaking as bare identifiers, and inconsistent formatting between
+  // contributor-generated snippets and the file itself).
+  function serializeValue(val, indent){
+    const pad = '  '.repeat(indent), pad1 = '  '.repeat(indent+1);
+    if(val === null || val === undefined) return 'null';
+    if(typeof val === 'string') return `'${esc(val)}'`;
+    if(typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if(Array.isArray(val)){
+      if(!val.length) return '[]';
+      const allPrimitive = val.every(v=>typeof v!=='object'||v===null);
+      if(allPrimitive) return '[' + val.map(v=>serializeValue(v,indent)).join(', ') + ']';
+      return '[\n' + val.map(v=>pad1+serializeValue(v,indent+1)).join(',\n') + ',\n' + pad + ']';
+    }
+    if(typeof val === 'object'){
+      const keys = Object.keys(val);
+      if(!keys.length) return '{}';
+      const lines = keys.map(k=>pad1+`'${k}'`+': '+serializeValue(val[k],indent+1));
+      return '{\n'+lines.join(',\n')+',\n'+pad+'}';
+    }
+    return 'undefined';
+  }
+  function serializeTopLevelConst(name, obj){
+    return `  const ${name} = ` + serializeValue(obj, 1) + ';';
+  }
+
+  function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+  // Builds the item object as it should appear in the merged THEMES tree.
+  function itemDataObject(o){
+    const out = { label:o.label, images:o.images||[], description:o.description };
+    if(o.mechanism) out.mechanism = o.mechanism;
+    out.funFacts = o.funFacts||[];
+    out.refs = o.refs||[];
+    out.hashtags = o.hashtags||[];
+    if(o.relatedCourseOverride) out.relatedCourse = o.relatedCourseOverride;
+    else if(o.course){ out.course = o.course; if(o.class) out.class = o.class; }
+    return out;
+  }
+  function questionDataObject(o){
+    const out = { id:o.qId, prompt:o.prompt, options:o.options, correctIndex:o.correctIndex, explanation:o.explanation };
+    if(o.hashtags && o.hashtags.length) out.hashtags = o.hashtags;
+    if(o.relatedCourseOverride) out.relatedCourse = o.relatedCourseOverride;
+    else if(o.course){ out.course = o.course; if(o.class) out.class = o.class; }
+    return out;
+  }
+  // Applies one queue entry's structured data onto cloned COURSES/TOPICS/THEMES.
+  // Reads only entry.data (never the pre-formatted text) so this stays
+  // correct however many entries have come and gone -- deleting an entry
+  // from the queue before merging means it's simply never applied here.
+  function applyEntry(entry, courses, topics, themes){
+    const o = entry.data;
+    if(!o) return; // an entry added before this feature existed has no structured data -- skip it, its text is still visible in the queue for manual handling
+    function applyCourseInfo(courseInfo){
+      if(!courseInfo) return;
+      if(courseInfo.newCourseData){
+        const nc = courseInfo.newCourseData;
+        if(!courses[nc.code]) courses[nc.code] = { code:nc.code, label:nc.label, classes:{} };
+        if(nc.classKey) courses[nc.code].classes[nc.classKey] = { label:nc.classLabel };
+      }
+      if(courseInfo.newClassData){
+        const ncl = courseInfo.newClassData;
+        if(courses[ncl.course]) courses[ncl.course].classes[ncl.key] = { label:ncl.label };
+      }
+    }
+    if(entry.type === 'course'){
+      themes[o.id] = { label:o.label, icon:o.icon, blurb:o.blurb, topics:{} };
+      return;
+    }
+    if(entry.type === 'item' || entry.type === 'edit-item'){
+      applyCourseInfo(o.courseInfo);
+      const th = themes[o.theme];
+      if(!th) return; // references a theme that doesn't exist even after applying earlier entries -- leave it for manual review
+      if(o.usingNewTopic && !topics[o.topicId]){
+        topics[o.topicId] = { label:o.newTopicLabel||o.topicId, icon:o.newTopicIcon||'📋', color:'#c58bff' };
+      }
+      th.topics[o.topicId] = th.topics[o.topicId] || { items:{} };
+      const data = itemDataObject(o);
+      if(entry.type === 'edit-item') data.questions = o.existingQuestions || [];
+      else if(th.topics[o.topicId].items[o.itemId]) data.questions = th.topics[o.topicId].items[o.itemId].questions || [];
+      th.topics[o.topicId].items[o.itemId] = data;
+      return;
+    }
+    if(entry.type === 'question'){
+      applyCourseInfo(o.courseInfo);
+      const th = themes[o.theme];
+      const topic = th && th.topics[o.topic];
+      const item = topic && topic.items[o.itemId];
+      if(!item) return; // question for an item that isn't in the tree (typo'd id, or its own "item" queue entry got deleted before merging) -- skip, doesn't corrupt anything
+      item.questions = item.questions || [];
+      item.questions.push(questionDataObject(o));
+      return;
+    }
+  }
+
+  function generateMergedFile(){
+    const template = loadTemplate();
+    const courses = deepClone(RD.COURSES);
+    const topics = deepClone(RD.TOPICS);
+    const themes = deepClone(RD.THEMES);
+    const entries = Object.values(batch).sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+    let appliedCount = 0, skippedNoData = 0;
+    entries.forEach(entry=>{
+      if(!entry.data){ skippedNoData++; return; }
+      applyEntry(entry, courses, topics, themes);
+      appliedCount++;
+    });
+    const coursesText = serializeTopLevelConst('COURSES', courses);
+    const topicsText = serializeTopLevelConst('TOPICS', topics);
+    const themesText = serializeTopLevelConst('THEMES', themes);
+    const full = template.before + coursesText + template.betweenCoursesTopics
+      + topicsText + template.betweenTopicsThemes + themesText + template.afterThemes;
+    // Never hand back text we haven't verified actually parses -- this is
+    // the one output in this whole tool that goes straight into the file
+    // everyone's game loads, so a silent syntax error here is the worst
+    // possible failure mode.
+    try {
+      new Function(full.replace(/^\s*\/\*[\s\S]*?\*\//, ''));
+    } catch(err){
+      return { ok:false, error: err.message, appliedCount, skippedNoData };
+    }
+    return { ok:true, text: full, appliedCount, skippedNoData };
+  }
+
+  document.getElementById('mergeGenerateBtn').addEventListener('click', ()=>{
+    const mergeStatus = document.getElementById('mergeStatus');
+    const mergeOutputWrap = document.getElementById('mergeOutputWrap');
+    const mergeOutput = document.getElementById('mergeOutput');
+    if(!Object.keys(batch).length){ mergeStatus.textContent = 'Queue is empty -- nothing to merge.'; mergeOutputWrap.style.display='none'; return; }
+    const result = generateMergedFile();
+    if(!result.ok){
+      mergeStatus.textContent = `⚠️ Generated file has a syntax error and was NOT shown -- ${result.error}. This usually means the template needs refreshing (see "Update the template" below).`;
+      mergeStatus.style.color = 'var(--danger)';
+      mergeOutputWrap.style.display = 'none';
+      return;
+    }
+    mergeStatus.style.color = 'var(--good)';
+    mergeStatus.textContent = `✓ Valid JS -- merged ${result.appliedCount} queue entr${result.appliedCount===1?'y':'ies'}${result.skippedNoData?` (${result.skippedNoData} older entr${result.skippedNoData===1?'y':'ies'} skipped -- added before this feature existed, still in the queue text above for manual handling)`:''}.`;
+    mergeOutput.textContent = result.text;
+    mergeOutputWrap.style.display = 'block';
+    mergeOutput._fullText = result.text;
+  });
+  document.getElementById('mergeCopyBtn').addEventListener('click', ()=>{
+    const mergeOutput = document.getElementById('mergeOutput');
+    if(mergeOutput._fullText) copyText(mergeOutput._fullText);
+  });
+  document.getElementById('mergeDownloadBtn').addEventListener('click', ()=>{
+    const mergeOutput = document.getElementById('mergeOutput');
+    if(!mergeOutput._fullText) return;
+    const blob = new Blob([mergeOutput._fullText], {type:'text/javascript'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'game-data.js';
+    a.click();
+  });
+
+  document.getElementById('templateUpdateBtn').addEventListener('click', ()=>{
+    const templateInput = document.getElementById('templateInput');
+    const templateStatus = document.getElementById('templateStatus');
+    const parts = extractTemplateParts(templateInput.value);
+    if(!parts){
+      templateStatus.textContent = '⚠️ Could not find COURSES/TOPICS/THEMES in that text -- paste the whole game-data.js file, unedited.';
+      templateStatus.style.color = 'var(--danger)';
+      return;
+    }
+    localStorage.setItem('gameDataTemplate', JSON.stringify(parts));
+    templateStatus.textContent = '✓ Template saved in this browser.';
+    templateStatus.style.color = 'var(--good)';
+    templateInput.value = '';
   });
 
   function renderAll(){ renderItem(); renderQuestion(); renderCourse(); renderHashtagStructureList(); }
