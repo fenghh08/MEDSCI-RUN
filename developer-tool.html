@@ -395,6 +395,30 @@
         </div>
       </div>
     </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>📄 Bulk-add items from CSV — for one theme + topic at a time (COMING SOON, STILL FIGURING THIS OUT)</h2>
+      <p class="card-sub">Pick the theme and topic these items belong to, then paste CSV text (with a header row) covering just the item fields. Columns, any order, matched by name: <b>label, description</b> (required), <b>mechanism, funFacts, hashtags</b> (optional; funFacts/hashtags separate multiple with a semicolon), <b>course, class</b> (optional — must exactly match an existing course code and class key, e.g. <code>MEDS3002</code> / <code>L14</code>; a row with a course or class that doesn't match a real one is rejected rather than silently creating an untagged mismatch). References and images aren't supported here — add those afterward via edit mode if needed. Each valid row becomes its own entry in the queue, exactly as if added one at a time.</p>
+      <div class="row2">
+        <label class="field">
+          <span class="fl-label">Theme <span class="req">*</span></span>
+          <select id="csvitem_theme"></select>
+        </label>
+        <label class="field">
+          <span class="fl-label">Topic <span class="req">*</span></span>
+          <select id="csvitem_topic"></select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="fl-label">Paste CSV text</span>
+        <textarea id="csvitem_textarea" rows="8" placeholder="label,description,mechanism,funFacts,hashtags,course,class
+Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.&quot;,&quot;First oral targeted therapy in CLL&quot;,Leukemia,MEDS3002,L15"></textarea>
+      </label>
+      <div id="csvitem_preview" style="margin:10px 0;font-size:12px;color:var(--hud-dim);"></div>
+      <div class="btn-row">
+        <button class="primary" id="csvitem_parseBtn">Parse &amp; add all to queue</button>
+      </div>
+    </div>
   </div>
 
   <!-- ================= QUESTION FORM ================= -->
@@ -662,7 +686,7 @@
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-simplify-git-check-back-to-single-constant'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-08-30-add-bulk-item-csv-and-direct-question-delete'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -1535,11 +1559,103 @@
     refreshQuestionItemSelect();
     refreshEditItemSelect();
     refreshCsvItemSelect();
+    refreshCsvItemFormSelects();
     renderStructureList();
     i_coursePicker.refresh();
     refreshCourseSelects();
     toast(o.editingItemId ? 'Edit added to queue' : 'Added to queue');
     resetItemFormToNew();
+  });
+
+  // ================= CSV IMPORT (items, one theme + topic at a time) =================
+  const csvitem_theme = document.getElementById('csvitem_theme');
+  const csvitem_topic = document.getElementById('csvitem_topic');
+  const csvitem_textarea = document.getElementById('csvitem_textarea');
+  const csvitem_preview = document.getElementById('csvitem_preview');
+  function refreshCsvItemFormSelects(){
+    const currentTheme = csvitem_theme.value;
+    csvitem_theme.innerHTML = KNOWN_THEMES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('');
+    if([...csvitem_theme.options].some(o=>o.value===currentTheme)) csvitem_theme.value = currentTheme;
+    fillTopicSelect(csvitem_topic, csvitem_theme.value);
+  }
+  csvitem_theme.addEventListener('change', ()=>{ fillTopicSelect(csvitem_topic, csvitem_theme.value); renderCsvItemPreview(); });
+  refreshCsvItemFormSelects();
+
+  // Parses without touching the queue -- used for both the live preview and
+  // the actual add-all action, so what you're told matches what happens.
+  // Course/class are validated against the REAL course structure here too,
+  // same principle as the "spans several classes" picker: a typo'd course
+  // code is a rejected row with a clear reason, never a silently-created
+  // mismatch that fails to group with anything.
+  function parseCsvItems(){
+    const theme = csvitem_theme.value, topicId = csvitem_topic.value;
+    if(!theme || !topicId) return { valid:[], errors:['Pick a theme and topic first.'] };
+    const rows = parseCSV(csvitem_textarea.value);
+    if(rows.length < 2) return { valid:[], errors:['Paste a header row plus at least one item row.'] };
+    const header = rows[0].map(h=>h.trim().toLowerCase());
+    const col = name => header.indexOf(name);
+    const idx = { label:col('label'), description:col('description'), mechanism:col('mechanism'), funfacts:col('funfacts'), hashtags:col('hashtags'), course:col('course'), class:col('class') };
+    const missingCols = ['label','description'].filter(k=>idx[k]<0);
+    if(missingCols.length) return { valid:[], errors:[`Missing required column(s): ${missingCols.join(', ')}.`] };
+    const valid = [], errors = [];
+    for(let r=1; r<rows.length; r++){
+      const row = rows[r];
+      if(row.every(f=>(f||'').trim()==='')) continue; // silently skip fully-blank rows
+      const rowNum = r+1; // 1-indexed, matches what a person sees in a spreadsheet
+      const label = (row[idx.label]||'').trim();
+      const description = (row[idx.description]||'').trim();
+      const mechanism = idx.mechanism>=0 ? (row[idx.mechanism]||'').trim() : '';
+      const funFacts = idx.funfacts>=0 ? (row[idx.funfacts]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
+      const hashtags = idx.hashtags>=0 ? (row[idx.hashtags]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
+      const courseCode = idx.course>=0 ? (row[idx.course]||'').trim() : '';
+      const classKey = idx.class>=0 ? (row[idx.class]||'').trim() : '';
+      if(!label){ errors.push(`Row ${rowNum}: missing label, skipped.`); continue; }
+      if(!description){ errors.push(`Row ${rowNum}: missing description, skipped.`); continue; }
+      let course = '', cls = '';
+      if(courseCode){
+        if(!KNOWN_COURSES[courseCode]){ errors.push(`Row ${rowNum}: course "${courseCode}" doesn't match any existing course, skipped.`); continue; }
+        course = courseCode;
+        if(classKey){
+          if(!KNOWN_COURSES[courseCode].classes[classKey]){ errors.push(`Row ${rowNum}: class "${classKey}" doesn't exist under course ${courseCode}, skipped.`); continue; }
+          cls = classKey;
+        }
+      } else if(classKey){
+        errors.push(`Row ${rowNum}: class given without a course, skipped.`); continue;
+      }
+      const itemId = slugify(label) + '_' + randSuffix();
+      valid.push({
+        theme, topicId, itemId, label, description, mechanism, funFacts, hashtags,
+        refs: [], images: [], course, class: cls, relatedCourseOverride: '',
+        usingNewTopic: false, addCourseSnippet: '', addClassSnippet: '',
+        courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
+      });
+    }
+    return { valid, errors };
+  }
+  function renderCsvItemPreview(){
+    if(!csvitem_textarea.value.trim()){ csvitem_preview.textContent = ''; return; }
+    const { valid, errors } = parseCsvItems();
+    let msg = valid.length ? `✅ ${valid.length} item${valid.length===1?'':'s'} ready to add.` : '';
+    if(errors.length) msg += (msg?' ':'') + `⚠️ ${errors.join(' ')}`;
+    csvitem_preview.textContent = msg;
+  }
+  csvitem_textarea.addEventListener('input', renderCsvItemPreview);
+  csvitem_topic.addEventListener('change', renderCsvItemPreview);
+  document.getElementById('csvitem_parseBtn').addEventListener('click', ()=>{
+    const { valid, errors } = parseCsvItems();
+    if(!valid.length){ toast(errors[0] || 'Nothing to add'); return; }
+    const themeLabel = (KNOWN_THEMES.find(t=>t.id===csvitem_theme.value)||{}).label || csvitem_theme.value;
+    valid.forEach(o=>{
+      KNOWN_ITEMS.push({ id:o.itemId, theme:o.theme, topic:o.topicId, label:o.label, course:o.course, class:o.class });
+      pushToQueue({ type:'item', title:o.label, code:itemCodeString(o), note:`${themeLabel} · ${o.topicId} · via CSV`, data:o });
+    });
+    refreshQuestionItemSelect();
+    refreshEditItemSelect();
+    refreshCsvItemSelect();
+    renderStructureList();
+    toast(`Added ${valid.length} item${valid.length===1?'':'s'} to queue`);
+    csvitem_textarea.value = '';
+    csvitem_preview.textContent = '';
   });
 
   // ================= QUESTION FORM =================
@@ -1786,7 +1902,8 @@
     const o = buildCourseObject();
     KNOWN_THEMES.push({ id:o.id, label:o.label });
     pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new theme', data:o });
-    [i_theme, q_theme].forEach(sel=>fillThemeSelect(sel));
+    [i_theme, q_theme, csvitem_theme].forEach(sel=>fillThemeSelect(sel));
+    refreshCsvItemFormSelects();
     renderStructureList();
     toast('Added to queue');
     c_label.value=''; c_blurb.value=''; c_icon.value='📘';
@@ -1845,6 +1962,7 @@
             <div class="struct-q-prompt">${esc2(q.prompt)}</div>
             ${q.options.map((op,i)=>`<div class="struct-q-opt${i===q.correctIndex?' correct':''}">${i===q.correctIndex?'✓':'·'} ${esc2(op)}</div>`).join('')}
             <div class="struct-q-explain">${esc2(q.explanation)}</div>
+            <button type="button" class="danger-btn" style="margin-top:6px;" data-delete-question="${it.id}::${it.theme}::${it.topic}::${esc2(q.id)}">🗑 Delete this question — 🔒 maintainer PIN required</button>
           </div>`).join('')
       : `<div class="struct-empty" style="margin-left:0;">— no questions yet for this item —</div>`;
     const html = `
@@ -1894,6 +2012,29 @@
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
         jumpToNewQuestionForItem(btn.dataset.addQuestion);
+      });
+    });
+    // Deletes ONE question directly, without going through edit-item mode
+    // first — same destructive weight as deleting an item, so it gets the
+    // same PIN gate and confirmation, just scoped to a single question.
+    container.querySelectorAll('[data-delete-question]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        if(!requireMaintainerUnlock()) return;
+        const [itemId, theme, topicId, questionId] = btn.dataset.deleteQuestion.split('::');
+        const known = KNOWN_ITEMS.find(it=>it.id===itemId);
+        const full = RD.THEMES[theme]?.topics[topicId]?.items[itemId];
+        const q = full?.questions?.find(q=>q.id===questionId);
+        const promptPreview = q ? q.prompt.slice(0,60) : questionId;
+        if(!confirm(`Delete this question from "${known?known.label:itemId}"?\n\n"${promptPreview}"\n\nThis can't be undone once merged.`)) return;
+        pushToQueue({
+          type: 'delete-question', title: promptPreview,
+          code: `// DELETE question ${questionId} from THEMES.${theme}.topics.${topicId}.items.${itemId}.questions in game-data.js`,
+          note: `DELETE question · ${(KNOWN_THEMES.find(t=>t.id===theme)||{}).label||theme} · ${topicId}`,
+          data: { theme, topicId, itemId, questionId },
+        });
+        toast('Question queued for deletion');
+        renderStructureList();
       });
     });
     // Jumping to edit mode first (rather than deleting straight from here)
@@ -2078,7 +2219,7 @@
       return;
     }
     batchList.innerHTML = '';
-    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️', 'delete-item':'🗑' };
+    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️', 'delete-item':'🗑', 'delete-question':'🗑' };
     entries.forEach(([key, entry])=>{
       const row = document.createElement('div');
       row.className = 'queue-item';
@@ -2097,13 +2238,15 @@
     const items = entries.filter(b=>b.type==='item');
     const editItems = entries.filter(b=>b.type==='edit-item');
     const deleteItems = entries.filter(b=>b.type==='delete-item');
+    const deleteQuestions = entries.filter(b=>b.type==='delete-question');
     const questions = entries.filter(b=>b.type==='question');
     const courses = entries.filter(b=>b.type==='course');
     let out = header;
     if(courses.length){ out += `// ---- New themes ----\n` + courses.map(c=>`// by ${c.contributorName}\n${c.code}`).join('\n\n') + '\n\n'; }
     if(items.length){ out += `// ---- New study guide items ----\n` + items.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(editItems.length){ out += `// ---- Edits to existing items ----\n` + editItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
-    if(deleteItems.length){ out += `// ---- DELETIONS ----\n` + deleteItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
+    if(deleteItems.length){ out += `// ---- DELETIONS (items) ----\n` + deleteItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
+    if(deleteQuestions.length){ out += `// ---- DELETIONS (questions) ----\n` + deleteQuestions.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(questions.length){ out += `// ---- New questions ----\n` + questions.map(q=>`// by ${q.contributorName}\n${q.code}`).join('\n\n') + '\n'; }
     return out.trim();
   }
@@ -2362,6 +2505,11 @@
     if(entry.type === 'delete-item'){
       const th = themes[o.theme];
       if(th && th.topics[o.topicId]) delete th.topics[o.topicId].items[o.itemId];
+      return;
+    }
+    if(entry.type === 'delete-question'){
+      const item = themes[o.theme]?.topics[o.topicId]?.items[o.itemId];
+      if(item && item.questions) item.questions = item.questions.filter(q=>q.id!==o.questionId);
       return;
     }
     function applyCourseInfo(courseInfo){
