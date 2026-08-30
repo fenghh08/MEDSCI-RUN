@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Runner Game — Contribute Content</title>
+<title>Runner Game — Developer Tool</title>
 <!-- Live game content (themes, topics, items, courses, ...) — the same file
      the game itself loads. Everything below reads from window.RUNNER_DATA,
      so this form always reflects what's actually in the game — no manual
@@ -179,6 +179,16 @@
   .queue-item .qi-label b{ color:var(--membrane); }
   .queue-item .qi-meta{ font-size:10.5px; color:var(--hud-dim); margin-top:2px; }
   .edit-toggle{ display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:12px; color:var(--hud-ink); }
+  .lock-gate{ background:var(--bg-1); border:1px dashed var(--panel-line); border-radius:10px; padding:14px; text-align:center; }
+  .lock-gate input{ font-family:var(--mono); font-size:16px; letter-spacing:.3em; text-align:center; width:100px;
+    background:var(--panel); border:1px solid var(--panel-line); color:var(--hud-ink); border-radius:8px; padding:8px; margin:8px 6px; }
+  .lock-gate .lg-error{ color:var(--danger); font-size:11px; margin-top:6px; display:none; }
+  .danger-btn{ font-family:var(--mono); font-size:11.5px; background:transparent; border:1px solid var(--danger);
+    color:var(--danger); border-radius:20px; padding:5px 12px; cursor:pointer; margin-top:8px; }
+  .danger-btn:hover{ background:var(--danger); color:#1a0508; }
+  .q-existing-row{ display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg-1);
+    border:1px solid var(--panel-line); border-radius:7px; padding:7px 10px; margin-bottom:6px; font-size:11.5px; }
+  .q-existing-row.removed{ opacity:.4; text-decoration:line-through; }
   .edit-toggle input{ width:15px; height:15px; }
 </style>
 </head>
@@ -255,6 +265,12 @@
             <select id="i_editItemSelect"></select>
           </label>
           <button type="button" class="struct-edit-link" id="i_addQuestionQuickLink" style="display:none;margin-top:10px;">➕ Skip editing — just add a question to this item instead</button>
+          <div id="i_existingQuestionsWrap" style="display:none;margin-top:12px;">
+            <span class="fl-label">This item's existing questions</span>
+            <span class="fl-help">Remove any that shouldn't be here — they're only actually deleted once you submit this edit. 🔒 Maintainer PIN required.</span>
+            <div id="i_existingQuestionsList"></div>
+          </div>
+          <button type="button" class="danger-btn" id="i_deleteItemBtn" style="display:none;">🗑 Delete this item entirely (and all its questions) — 🔒 maintainer PIN required</button>
         </div>
 
         <div class="row2">
@@ -556,28 +572,36 @@
   <div class="batch" style="border-color:var(--good);">
     <h2>🛠 Merge the queue into a ready-to-paste game-data.js</h2>
     <p class="card-sub">For whoever actually maintains game-data.js. Takes everything currently in the queue above and folds it into a full copy of the game data — themes, topics, and items included — so you copy once and replace the whole file, instead of finding and pasting each section by hand. Nothing here writes to any file directly; you still paste the result over game-data.js yourself.</p>
-    <div class="btn-row">
-      <button class="primary" id="mergeGenerateBtn">🧬 Generate merged game-data.js</button>
-      <span id="mergeStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
+    <div id="maintainerLockGate" class="lock-gate">
+      <div>🔒 Maintainer PIN required — this section can delete or overwrite content.</div>
+      <input type="password" id="maintainerPinInput" maxlength="4" inputmode="numeric" placeholder="••••">
+      <button class="primary" id="maintainerUnlockBtn">Unlock</button>
+      <div class="lg-error" id="maintainerPinError">Wrong PIN.</div>
     </div>
-    <div id="mergeOutputWrap" style="display:none;margin-top:14px;">
-      <pre class="code-out" id="mergeOutput" style="max-height:340px;"></pre>
+    <div id="maintainerLockedContent" style="display:none;">
       <div class="btn-row">
-        <button class="primary" id="mergeCopyBtn">Copy the whole file</button>
-        <button class="secondary" id="mergeDownloadBtn">Download as game-data.js</button>
+        <button class="primary" id="mergeGenerateBtn">🧬 Generate merged game-data.js</button>
+        <span id="mergeStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
       </div>
-    </div>
-    <details style="margin-top:14px;">
-      <summary style="cursor:pointer;font-size:12px;color:var(--hud-dim);">⚙️ Update the template (only needed if you've hand-edited GAME_CONFIG, STAGES, or the header comments directly — the merge otherwise already reads the current game-data.js live)</summary>
-      <div style="margin-top:10px;">
-        <p class="card-sub" style="margin-top:0;">Paste your current, working game-data.js here to refresh the static parts the merge carries through unchanged (everything outside COURSES/TOPICS/THEMES — comments, GAME_CONFIG, LIFE_CONFIG, STAGES, etc.). This is stored in this browser only.</p>
-        <textarea id="templateInput" rows="6" placeholder="Paste the full contents of your current game-data.js here..."></textarea>
+      <div id="mergeOutputWrap" style="display:none;margin-top:14px;">
+        <pre class="code-out" id="mergeOutput" style="max-height:340px;"></pre>
         <div class="btn-row">
-          <button class="secondary" id="templateUpdateBtn">Extract &amp; save template</button>
-          <span id="templateStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
+          <button class="primary" id="mergeCopyBtn">Copy the whole file</button>
+          <button class="secondary" id="mergeDownloadBtn">Download as game-data.js</button>
         </div>
       </div>
-    </details>
+      <details style="margin-top:14px;">
+        <summary style="cursor:pointer;font-size:12px;color:var(--hud-dim);">⚙️ Update the template (only needed if you've hand-edited GAME_CONFIG, STAGES, or the header comments directly — the merge otherwise already reads the current game-data.js live)</summary>
+        <div style="margin-top:10px;">
+          <p class="card-sub" style="margin-top:0;">Paste your current, working game-data.js here to refresh the static parts the merge carries through unchanged (everything outside COURSES/TOPICS/THEMES — comments, GAME_CONFIG, LIFE_CONFIG, STAGES, etc.). This is stored in this browser only.</p>
+          <textarea id="templateInput" rows="6" placeholder="Paste the full contents of your current game-data.js here..."></textarea>
+          <div class="btn-row">
+            <button class="secondary" id="templateUpdateBtn">Extract &amp; save template</button>
+            <span id="templateStatus" style="font-size:12px;color:var(--hud-dim);margin-left:8px;"></span>
+          </div>
+        </div>
+      </details>
+    </div>
   </div>
 </div>
 
@@ -637,6 +661,56 @@
   if(!RD){
     document.write('<p style="color:#ff3b5c;padding:20px;">Could not load game-data.js — make sure it sits in the same folder as this file, then reload.</p>');
     throw new Error('window.RUNNER_DATA missing — is game-data.js next to this file?');
+  }
+
+  // ======================================================================
+  // MAINTAINER PIN — a light deterrent, not real security. This is a plain
+  // HTML file with no server behind it, so anyone who opens dev tools can
+  // read this PIN in the source regardless of what it's set to; the point
+  // isn't to stop a determined person, it's to stop a regular contributor
+  // from casually clicking "delete" or "generate the real file" while
+  // exploring the tool. CHANGE THIS to your own 4-digit code before
+  // handing this file to contributors.
+  // ======================================================================
+  const MAINTAINER_PIN = '1008';
+  // sessionStorage can throw (SecurityError) for file:// pages in some
+  // browsers, which would otherwise take down this whole script before any
+  // button worked at all — same class of failure as the Firebase import,
+  // handled the same way: never let an optional convenience feature (here,
+  // "stay unlocked for this tab") break anything essential.
+  function safeSessionGet(key){ try { return sessionStorage.getItem(key); } catch(e){ return null; } }
+  function safeSessionSet(key, val){ try { sessionStorage.setItem(key, val); } catch(e){ /* unlock just won't persist a reload — fine */ } }
+  let maintainerUnlocked = safeSessionGet('maintainerUnlocked') === 'yes';
+  const maintainerLockGate = document.getElementById('maintainerLockGate');
+  const maintainerLockedContent = document.getElementById('maintainerLockedContent');
+  function applyMaintainerLockUI(){
+    maintainerLockGate.style.display = maintainerUnlocked ? 'none' : 'block';
+    maintainerLockedContent.style.display = maintainerUnlocked ? 'block' : 'none';
+  }
+  applyMaintainerLockUI();
+  document.getElementById('maintainerUnlockBtn').addEventListener('click', ()=>{
+    const input = document.getElementById('maintainerPinInput');
+    const err = document.getElementById('maintainerPinError');
+    if(input.value === MAINTAINER_PIN){
+      maintainerUnlocked = true;
+      safeSessionSet('maintainerUnlocked', 'yes');
+      err.style.display = 'none';
+      applyMaintainerLockUI();
+    } else {
+      err.style.display = 'block';
+      input.value = '';
+    }
+  });
+  document.getElementById('maintainerPinInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') document.getElementById('maintainerUnlockBtn').click();
+  });
+  // Shared guard for maintainer-only actions that live OUTSIDE the locked
+  // section itself (e.g. "delete this item", in the item form) — checks
+  // the same unlock state rather than duplicating the PIN prompt everywhere.
+  function requireMaintainerUnlock(){
+    if(maintainerUnlocked) return true;
+    toast('Unlock maintainer mode first (Team Queue section, near the bottom)');
+    return false;
   }
 
   const KNOWN_THEMES = Object.entries(RD.THEMES).map(([id,t])=>({ id, label:t.label }));
@@ -1010,6 +1084,44 @@
     if([...i_editItemSelect.options].some(o=>o.value===current)) i_editItemSelect.value = current;
   }
   refreshEditItemSelect();
+  let removedQuestionIds = new Set();
+  function renderExistingQuestionsList(){
+    const wrap = document.getElementById('i_existingQuestionsWrap');
+    const list = document.getElementById('i_existingQuestionsList');
+    if(!editingItemQuestions || !editingItemQuestions.length){ wrap.style.display = 'none'; list.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = editingItemQuestions.map(q=>{
+      const removed = removedQuestionIds.has(q.id);
+      return `<div class="q-existing-row${removed?' removed':''}">
+        <span>${esc2(q.prompt.slice(0,70))}${q.prompt.length>70?'…':''}</span>
+        <button type="button" class="danger-btn" style="margin:0;" data-toggle-remove="${q.id}">${removed?'↺ Undo':'✕ Remove'}</button>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-toggle-remove]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(!requireMaintainerUnlock()) return;
+        const id = btn.dataset.toggleRemove;
+        if(removedQuestionIds.has(id)) removedQuestionIds.delete(id); else removedQuestionIds.add(id);
+        renderExistingQuestionsList();
+        renderItem();
+      });
+    });
+  }
+  document.getElementById('i_deleteItemBtn').addEventListener('click', ()=>{
+    if(!requireMaintainerUnlock()) return;
+    if(!editingItemId) return;
+    const known = KNOWN_ITEMS.find(it=>it.id===editingItemId);
+    const qCount = (editingItemQuestions||[]).length;
+    if(!confirm(`Delete "${known.label}" and all ${qCount} of its question(s)? This can't be undone once merged.`)) return;
+    pushToQueue({
+      type: 'delete-item', title: known.label, code: `// DELETE THEMES.${editingItemTheme}.topics.${editingItemTopic}.items.${editingItemId} from game-data.js (removes it and all ${qCount} of its questions)`,
+      note: `DELETE · ${(KNOWN_THEMES.find(t=>t.id===editingItemTheme)||{}).label||editingItemTheme} · ${editingItemTopic}`,
+      data: { theme: editingItemTheme, topicId: editingItemTopic, itemId: editingItemId, label: known.label },
+    });
+    toast(`"${known.label}" queued for deletion`);
+    resetItemFormToNew();
+    renderStructureList();
+  });
   function loadItemForEditing(itemId){
     const known = KNOWN_ITEMS.find(it=>it.id===itemId);
     if(!known) return;
@@ -1017,6 +1129,9 @@
     if(!item) return;
     editingItemId = itemId; editingItemTheme = known.theme; editingItemTopic = known.topic;
     editingItemQuestions = item.questions || [];
+    removedQuestionIds = new Set();
+    renderExistingQuestionsList();
+    document.getElementById('i_deleteItemBtn').style.display = 'inline-block';
     i_theme.value = known.theme;
     fillTopicSelect(i_topic, known.theme);
     i_topic.value = known.topic;
@@ -1050,6 +1165,9 @@
   }
   function resetItemFormToNew(){
     editingItemId = null; editingItemTheme = null; editingItemTopic = null; editingItemQuestions = null;
+    removedQuestionIds = new Set();
+    document.getElementById('i_existingQuestionsWrap').style.display = 'none';
+    document.getElementById('i_deleteItemBtn').style.display = 'none';
     i_editModeToggle.checked = false;
     i_editPickerBlock.classList.remove('show');
     i_addQuestionQuickLink.style.display = 'none';
@@ -1093,7 +1211,7 @@
         addCourseSnippet: courseInfo.addCourseSnippet, addClassSnippet: courseInfo.addClassSnippet,
         refs: i_refsEl._getValues(),
         images: i_imagesEl._getValues(editingItemId),
-        existingQuestions: editingItemQuestions || [],
+        existingQuestions: (editingItemQuestions || []).filter(q=>!removedQuestionIds.has(q.id)),
       };
     }
     const usingNewTopic = i_newTopicBlock.classList.contains('show');
@@ -1549,6 +1667,7 @@
           ${imagesNote}
           <button type="button" class="struct-edit-link" data-edit-item="${it.id}">✏️ Edit this item</button>
           <button type="button" class="struct-edit-link" data-add-question="${it.id}">➕ Add a question here</button>
+          <button type="button" class="danger-btn" data-delete-item="${it.id}">🗑 Delete this item — 🔒 maintainer PIN required</button>
           ${questionsHtml}
         </div>
       </details>`;
@@ -1584,6 +1703,23 @@
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
         jumpToNewQuestionForItem(btn.dataset.addQuestion);
+      });
+    });
+    // Jumping to edit mode first (rather than deleting straight from here)
+    // means the delete button they actually click is the same one that
+    // already shows the question count and confirms before queuing —
+    // one delete path, not two slightly-different ones to keep in sync.
+    container.querySelectorAll('[data-delete-item]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        if(!requireMaintainerUnlock()) return;
+        showTab('item');
+        i_editModeToggle.checked = true;
+        i_editModeToggle.dispatchEvent(new Event('change'));
+        i_editItemSelect.value = btn.dataset.deleteItem;
+        i_editItemSelect.dispatchEvent(new Event('change'));
+        const delBtn = document.getElementById('i_deleteItemBtn');
+        if(delBtn.scrollIntoView) delBtn.scrollIntoView({behavior:'smooth', block:'center'});
       });
     });
   }
@@ -1751,7 +1887,7 @@
       return;
     }
     batchList.innerHTML = '';
-    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️' };
+    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️', 'delete-item':'🗑' };
     entries.forEach(([key, entry])=>{
       const row = document.createElement('div');
       row.className = 'queue-item';
@@ -1769,12 +1905,14 @@
     const header = `// Team queue snapshot — ${new Date().toLocaleString()}\n// ${entries.length} item(s) below.\n\n`;
     const items = entries.filter(b=>b.type==='item');
     const editItems = entries.filter(b=>b.type==='edit-item');
+    const deleteItems = entries.filter(b=>b.type==='delete-item');
     const questions = entries.filter(b=>b.type==='question');
     const courses = entries.filter(b=>b.type==='course');
     let out = header;
     if(courses.length){ out += `// ---- New themes ----\n` + courses.map(c=>`// by ${c.contributorName}\n${c.code}`).join('\n\n') + '\n\n'; }
     if(items.length){ out += `// ---- New study guide items ----\n` + items.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(editItems.length){ out += `// ---- Edits to existing items ----\n` + editItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
+    if(deleteItems.length){ out += `// ---- DELETIONS ----\n` + deleteItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(questions.length){ out += `// ---- New questions ----\n` + questions.map(q=>`// by ${q.contributorName}\n${q.code}`).join('\n\n') + '\n'; }
     return out.trim();
   }
@@ -1798,11 +1936,11 @@
   // fresh from the currently-loaded game-data.js PLUS whatever's still in
   // the queue; everything else (GAME_CONFIG, LIFE_CONFIG, STAGES, header
   // comments, ...) is carried through unchanged from a template, since
-  // contributor.html never touches those sections at all.
+  // developer-tool.html never touches those sections at all.
   const DEFAULT_TEMPLATE = {
     before: `/* ============================================================================
    game-data.js — all game CONTENT for Runner Game (cancer-runner-group.html)
-   and the Contributor tool (contributor.html) live in this one file.
+   and the Contributor tool (developer-tool.html) live in this one file.
 
    Nothing in here is executable game logic — it's just numbers, labels and
    study-guide content. The game and the contributor tool both load this file
@@ -1812,7 +1950,7 @@
 
    HOW TO ADD CONTENT
    -------------------
-   • Easiest: open contributor.html, fill in the form, it writes the object
+   • Easiest: open developer-tool.html, fill in the form, it writes the object
      literal for you in the exact shape below — paste it in.
    • By hand: follow the shape of an existing entry and keep the same keys.
 
@@ -1949,7 +2087,8 @@
     try {
       const stored = localStorage.getItem('gameDataTemplate');
       if(stored) return JSON.parse(stored);
-    } catch(e){ /* fall through to default */ }
+    } catch(e){ /* fall through */ }
+    if(window.__sessionTemplateOverride) return window.__sessionTemplateOverride;
     return DEFAULT_TEMPLATE;
   }
   function extractTemplateParts(fullText){
@@ -2029,6 +2168,11 @@
   function applyEntry(entry, courses, topics, themes){
     const o = entry.data;
     if(!o) return; // an entry added before this feature existed has no structured data -- skip it, its text is still visible in the queue for manual handling
+    if(entry.type === 'delete-item'){
+      const th = themes[o.theme];
+      if(th && th.topics[o.topicId]) delete th.topics[o.topicId].items[o.itemId];
+      return;
+    }
     function applyCourseInfo(courseInfo){
       if(!courseInfo) return;
       if(courseInfo.newCourseData){
@@ -2141,9 +2285,15 @@
       templateStatus.style.color = 'var(--danger)';
       return;
     }
-    localStorage.setItem('gameDataTemplate', JSON.stringify(parts));
-    templateStatus.textContent = '✓ Template saved in this browser.';
-    templateStatus.style.color = 'var(--good)';
+    try {
+      localStorage.setItem('gameDataTemplate', JSON.stringify(parts));
+      templateStatus.textContent = '✓ Template saved in this browser.';
+      templateStatus.style.color = 'var(--good)';
+    } catch(e){
+      templateStatus.textContent = '⚠️ Could not save (this browser is blocking local storage for file:// pages) — the template will apply for this session only, not future ones.';
+      templateStatus.style.color = 'var(--danger)';
+      window.__sessionTemplateOverride = parts; // best-effort in-memory fallback for the rest of this session
+    }
     templateInput.value = '';
   });
 
