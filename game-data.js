@@ -463,6 +463,7 @@
               ],
               'hashtags': ['Senescence'],
               'relatedCourse': 'MEDS3002 L3 RNA splicing\nMEDS3002 L8 Cellular senescence',
+              'questions': [],
             },
           },
         },
