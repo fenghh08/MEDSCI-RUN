@@ -1,9 +1,3 @@
-# TO-DO (For Eason only)
-- Add item function can be integrated into html by lecture, and pick theme / topic for each question
-- - If no existing items, Add new one directly with just placeholder
-  - Generate a section for developers to check what is missing (description / image..)
-  - Add pin for delete queue as well
-
 # Runner Game — study-guide trivia runner
 
 A browser-based, study-guide trivia runner built for our own med school content (MEDS3002, MEDS2003, and whatever we add next). Hit a topic block, answer a multiple-choice question, push through the stages without running out of life — or skip the running entirely and use Study & Practice for untimed, filterable revision.
