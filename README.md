@@ -17,7 +17,13 @@ All three files (plus the two asset folders) need to sit in the **same folder** 
 
 ## Running it
 
-Just open `medsci-runner.html` in a browser. That's the whole setup. It works fully offline — Group Race needs an internet connection to sync between devices, but solo Runner, Study & Practice, and Custom Run don't need anything beyond the files themselves.
+**1. Download the files.** On the GitHub repo page, click the green **Code** button → **Download ZIP**. This gets you everything (`medsci-runner.html`, `developer-tool.html`, `game-data.js`, `icons/`, `images/`) in one file, correctly bundled together.
+
+**2. Extract it first — don't run it from inside the ZIP.** This matters, especially on Windows: double-clicking straight into the ZIP and opening `medsci-runner.html` from there looks like it works, but the browser can't find `game-data.js` or the image folders next to it that way — you'll get a blank or broken-looking game.
+   - **Windows**: right-click the downloaded ZIP → **Extract All...** → choose a folder → **Extract**. Then open `medsci-runner.html` from that extracted folder, not from inside the ZIP.
+   - **Mac**: double-clicking the ZIP in Finder extracts it automatically into a matching folder — just make sure you're opening the file from that extracted folder, not the `.zip` itself.
+
+**3. Open `medsci-runner.html`.** That's the whole setup — no install, no server. It works fully offline: Group Race needs an internet connection to sync between devices, but solo Runner, Study & Practice, and Custom Run don't need anything beyond the files themselves.
 
 ## How the content is structured
 
