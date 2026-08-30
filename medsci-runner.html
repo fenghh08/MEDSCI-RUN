@@ -46,7 +46,7 @@
     background:rgba(8,2,5,.92); text-align:center; padding:22px; z-index:10; overflow-y:auto; }
   .screen.active{ display:flex; }
   .screen h2{ font-family:var(--display); font-style:italic; font-weight:400; font-size:30px; margin:0 0 6px; }
-  .screen p.desc{ color:var(--hud-dim); max-width:480px; line-height:1.55; font-size:13px; margin:0 0 16px; text-align:center; }
+  .screen p.desc{ color:var(--hud-dim); max-width:480px; line-height:1.55; font-size:13px; margin:0 auto 16px; text-align:center; }
 
   .btn-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   button.primary{ font-family:var(--mono); background:linear-gradient(135deg,var(--membrane),#c22a5c);
@@ -66,8 +66,14 @@
   .pick-card .cc-blurb{ font-size:11px; color:var(--hud-dim); line-height:1.4; }
 
   .topic-tabs{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:14px; }
-  .checks{ display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center; }
-  .checks label{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--hud-ink); cursor:pointer; }
+  .checks{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; }
+  .checks label{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--hud-ink); cursor:pointer;
+    padding:7px 10px; border:1px solid var(--panel-line); border-radius:8px; background:var(--panel); }
+  .checks label:hover{ border-color:var(--membrane); }
+  .filter-section{ max-width:640px; margin:0 auto 16px; text-align:left; }
+  .filter-section-head{ display:flex; justify-content:space-between; align-items:baseline; margin:14px 0 8px; }
+  .filter-section-head .p-sub{ margin:0; }
+  .filter-select-toggle{ font-size:11px; color:var(--membrane); cursor:pointer; text-decoration:underline; background:none; border:none; font-family:inherit; padding:0; }
   select{ font-family:var(--mono); font-size:13px; background:var(--bg-1); color:var(--hud-ink);
     border:1px solid var(--panel-line); border-radius:8px; padding:8px 10px; width:100%; }
   select:focus{ outline:none; border-color:var(--membrane); }
@@ -205,6 +211,7 @@
         <div id="mpLeaderboardPanel"></div>
       </div>
       <div id="hudRight">
+        <button class="icon-btn" id="soundToggleBtn" title="Mute sound effects">🔊</button>
         <button class="icon-btn" id="pauseBtn" title="Pause (P)">⏸</button>
         <button class="icon-btn" id="guideBtn" title="Study guide">📚</button>
       </div>
@@ -261,12 +268,27 @@
       <div id="customSetupView" style="display:none;">
         <h2>Custom run</h2>
         <p class="desc">Pick any mix of Theme, Topic, and Course — leave a whole group unchecked to include everything in it. Since a mixed run doesn't have one storyline, stages are generic and life just shows as "Life" instead of a themed resource.</p>
-        <div class="p-sub" style="margin-top:0;">Theme <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every theme)</span></div>
-        <div class="checks" id="customThemeChecks" style="margin-bottom:16px;"></div>
-        <div class="p-sub">Topic <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every topic)</span></div>
-        <div class="checks" id="customTopicChecks" style="margin-bottom:16px;"></div>
-        <div class="p-sub">Course <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every course)</span></div>
-        <div class="checks" id="customCourseChecks" style="margin-bottom:18px;"></div>
+        <div class="filter-section">
+          <div class="filter-section-head">
+            <span class="p-sub">Theme <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every theme)</span></span>
+            <button type="button" class="filter-select-toggle" data-clear-group="customThemeChecks">Clear</button>
+          </div>
+          <div class="checks" id="customThemeChecks"></div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-section-head">
+            <span class="p-sub">Topic <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every topic)</span></span>
+            <button type="button" class="filter-select-toggle" data-clear-group="customTopicChecks">Clear</button>
+          </div>
+          <div class="checks" id="customTopicChecks"></div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-section-head">
+            <span class="p-sub">Course <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every course)</span></span>
+            <button type="button" class="filter-select-toggle" data-clear-group="customCourseChecks">Clear</button>
+          </div>
+          <div class="checks" id="customCourseChecks"></div>
+        </div>
         <p class="desc" id="customMatchCount" style="color:var(--hud-dim);"></p>
         <div class="btn-row">
           <button class="secondary" id="customBackBtn">← Back</button>
@@ -473,6 +495,71 @@
      it via window.RUNNER_DATA below. -->
 <script src="game-data.js"></script>
 <script type="module">
+/* ======================================================================
+   SOUND FX — small synthesized effects via the Web Audio API. No audio
+   files: everything here is generated on the fly with oscillators, so
+   there's nothing extra to ship or host, matching the rest of this
+   project's "one self-contained file" design. Muting is remembered
+   per-browser (localStorage, defensively — see the file:// note below).
+   ====================================================================== */
+  let audioCtx = null;
+  let soundMuted = (function(){
+    try { return localStorage.getItem('soundMuted') === 'yes'; } catch(e){ return false; }
+  })();
+  // Browsers block audio until a real user gesture happens on the page —
+  // creating the AudioContext eagerly at load time would just leave it
+  // permanently "suspended" and silently do nothing. So it's created lazily,
+  // on the first call that actually needs it (which only ever happens after
+  // a click), and resumed defensively in case the browser still suspended it.
+  function getAudioCtx(){
+    if(!audioCtx){
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ return null; } // some very old/locked-down browsers lack this entirely — sound just silently stays off, nothing else breaks
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    return audioCtx;
+  }
+  // One tone: a sine/square/etc. oscillator with a short attack/decay
+  // envelope so it doesn't click at the start or end. Everything below is
+  // built out of one or more calls to this.
+  function tone(freq, startAt, duration, {type='sine', gain=0.18, sweepTo=null}={}){
+    if(soundMuted) return;
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startAt);
+    if(sweepTo) osc.frequency.linearRampToValueAtTime(sweepTo, ctx.currentTime + startAt + duration);
+    g.gain.setValueAtTime(0, ctx.currentTime + startAt);
+    g.gain.linearRampToValueAtTime(gain, ctx.currentTime + startAt + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startAt + duration);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(ctx.currentTime + startAt);
+    osc.stop(ctx.currentTime + startAt + duration + 0.02);
+  }
+  const SoundFX = {
+    correct(){ tone(660,0,0.11,{type:'sine',gain:0.16}); tone(880,0.09,0.16,{type:'sine',gain:0.18}); },
+    wrong(){ tone(220,0,0.22,{type:'sawtooth',gain:0.14,sweepTo:140}); },
+    pickup(){ tone(1100,0,0.07,{type:'sine',gain:0.11}); },
+    damage(){ tone(120,0,0.18,{type:'square',gain:0.16,sweepTo:60}); },
+    stageComplete(){ [523,659,784,1047].forEach((f,i)=> tone(f, i*0.09, 0.16, {type:'triangle',gain:0.15})); },
+    win(){ [523,659,784,1047,1319].forEach((f,i)=> tone(f, i*0.1, 0.22, {type:'triangle',gain:0.16})); },
+    lose(){ [392,330,262].forEach((f,i)=> tone(f, i*0.15, 0.28, {type:'sine',gain:0.14})); },
+    click(){ tone(440,0,0.05,{type:'sine',gain:0.06}); },
+  };
+  function setSoundMuted(muted){
+    soundMuted = muted;
+    try { localStorage.setItem('soundMuted', muted ? 'yes' : 'no'); } catch(e){ /* fine — just won't persist across a reload in browsers that block file:// storage */ }
+    const btn = document.getElementById('soundToggleBtn');
+    if(btn){ btn.textContent = muted ? '🔇' : '🔊'; btn.title = muted ? 'Unmute sound effects' : 'Mute sound effects'; }
+  }
+  document.getElementById('soundToggleBtn').addEventListener('click', ()=>{
+    getAudioCtx(); // this click IS a user gesture -- take the opportunity to unlock audio even if they're about to mute
+    setSoundMuted(!soundMuted);
+  });
+  setSoundMuted(soundMuted); // sync the icon to whatever was loaded/defaulted above
+
 /* ======================================================================
    FIREBASE — used only for Group Race mode (real-time sync between
    devices). If you fork this file for a different Firebase project,
@@ -914,6 +1001,15 @@
     });
     updateCustomMatchCount();
   }
+  // "Clear" resets one group back to its unchecked/"everything" state,
+  // without touching the other two groups — useful once a group has many
+  // options and a few got checked while narrowing things down.
+  document.querySelectorAll('[data-clear-group]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.getElementById(btn.dataset.clearGroup).querySelectorAll('.cust-check').forEach(cb=>cb.checked=false);
+      updateCustomMatchCount();
+    });
+  });
   function updateCustomMatchCount(){
     const matches = customFilteredQuestions();
     const topicCount = new Set(matches.map(q=>q.topic)).size;
@@ -1125,6 +1221,7 @@
   }
   function showStageScenario(idx, isStart){
     screenState = 'scenario';
+    if(!isStart) SoundFX.stageComplete();
     const st = currentStages()[idx];
     const c = currentThemeMeta();
     scenarioIcon.innerHTML = iconHTML(c.icon,40);
@@ -1179,12 +1276,14 @@
     if(outcome==='win'){
       overTitle.textContent = 'All stages complete';
       overText.innerHTML = `You made it through all stages with <b>${Math.round(glucose)}</b> ${life} remaining. ${COMPLETE_SCENARIO}`;
+      SoundFX.win();
     } else if(outcome==='ended'){
       overTitle.textContent = 'Run ended';
       overText.innerHTML = `You ended the run on <b>Stage ${currentStages()[stageIndex].roman}</b> with <b>${Math.round(glucose)}</b> ${life} remaining.`;
     } else {
       overTitle.textContent = `Out of ${life}`;
       overText.innerHTML = `${life} ran out on <b>Stage ${currentStages()[stageIndex].roman}</b>. Review what you got wrong below and try again.`;
+      SoundFX.lose();
     }
     showScreen('over');
   }
@@ -1358,10 +1457,12 @@
       else practiceCorrect++;
       mcqVerdict.textContent = 'Correct';
       mcqVerdict.className = 'mcq-verdict verdict-good';
+      SoundFX.correct();
     } else {
       if(quizMode==='runner'){ glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI(); }
       mcqVerdict.textContent = 'Not quite';
       mcqVerdict.className = 'mcq-verdict verdict-bad';
+      SoundFX.wrong();
     }
     mcqExplain.textContent = q.explanation;
     mcqFeedback.style.display = 'block';
@@ -1430,6 +1531,7 @@
           glucose += GAME_CONFIG.glucosePickupValue;
           updateGlucoseUI();
           popup(e.x, laneY(e.lane)-24, `+${GAME_CONFIG.glucosePickupValue} ${lifeCfg().label}`, '#3ee6b8');
+          SoundFX.pickup();
         } else if(e.type==='topic'){
           openMCQ(e);
         } else if(e.type==='bomb'){
@@ -1437,6 +1539,7 @@
           updateGlucoseUI();
           popup(e.x, laneY(e.lane)-24, `💣 -${GAME_CONFIG.bombDamage} ${lifeCfg().label}`, 'var(--danger)');
           flashRed();
+          SoundFX.damage();
           if(glucose < 0 && screenState==='running'){ endRun('loss'); }
         }
       }
@@ -2257,7 +2360,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-08-30-fix-course-tag-back-navigation'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-08-30-custom-run-redesign-sound-fx'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
   buildCancerGrid();
