@@ -591,7 +591,9 @@
         <div class="btn-row">
           <button class="primary" id="mergeCopyBtn">Copy the whole file</button>
           <button class="secondary" id="mergeDownloadBtn">Download as game-data.js</button>
+          <button class="danger-btn" id="mergeClearQueueBtn" style="display:none;">🧹 Remove these merged entries from the queue</button>
         </div>
+        <p class="card-sub" style="margin-top:6px;">Only click the remove button <b>after</b> you've actually pasted the file above over game-data.js — it clears exactly the entries just merged, nothing added since.</p>
       </div>
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;font-size:12px;color:var(--hud-dim);">⚙️ Update the template (only needed if you've hand-edited GAME_CONFIG, STAGES, or the header comments directly — the merge otherwise already reads the current game-data.js live)</summary>
@@ -660,7 +662,7 @@
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-git-check-validated-spans'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-08-30-clear-merged-queue-entries'; // bump this string whenever you send teammates a new copy of this file
   // This file can't actually read medsci-runner.html's local content — a
   // browser blocks reading another local file:// file's contents from this
   // page, the same reason game-data.js has to be loaded via a <script> tag
@@ -2408,12 +2410,16 @@
     const courses = deepClone(RD.COURSES);
     const topics = deepClone(RD.TOPICS);
     const themes = deepClone(RD.THEMES);
-    const entries = Object.values(batch).sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+    const entries = Object.entries(batch)
+      .map(([key, entry])=>({ key, ...entry }))
+      .sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
     let appliedCount = 0, skippedNoData = 0;
+    const mergedKeys = [];
     entries.forEach(entry=>{
       if(!entry.data){ skippedNoData++; return; }
       applyEntry(entry, courses, topics, themes);
       appliedCount++;
+      mergedKeys.push(entry.key);
     });
     const coursesText = serializeTopLevelConst('COURSES', courses);
     const topicsText = serializeTopLevelConst('TOPICS', topics);
@@ -2429,7 +2435,7 @@
     } catch(err){
       return { ok:false, error: err.message, appliedCount, skippedNoData };
     }
-    return { ok:true, text: full, appliedCount, skippedNoData };
+    return { ok:true, text: full, appliedCount, skippedNoData, mergedKeys };
   }
 
   document.getElementById('mergeGenerateBtn').addEventListener('click', ()=>{
@@ -2449,6 +2455,18 @@
     mergeOutput.textContent = result.text;
     mergeOutputWrap.style.display = 'block';
     mergeOutput._fullText = result.text;
+    const clearBtn = document.getElementById('mergeClearQueueBtn');
+    clearBtn.style.display = result.mergedKeys.length ? 'inline-block' : 'none';
+    clearBtn.dataset.count = result.mergedKeys.length;
+    clearBtn._mergedKeys = result.mergedKeys; // exactly the entries THIS merge included -- not "the whole queue", since someone could add a new entry while you're deciding whether to paste this in
+  });
+  document.getElementById('mergeClearQueueBtn').addEventListener('click', function(){
+    const keys = this._mergedKeys || [];
+    if(!keys.length) return;
+    if(!confirm(`Remove these ${keys.length} entries from the team queue? Only do this once you've actually pasted the generated file over game-data.js — this can't be undone, and it only removes what THIS merge included, not anything added since.`)) return;
+    keys.forEach(k=> removeFromQueue(k));
+    this.style.display = 'none';
+    toast(`Removed ${keys.length} merged entries from the queue`);
   });
   document.getElementById('mergeCopyBtn').addEventListener('click', ()=>{
     const mergeOutput = document.getElementById('mergeOutput');
