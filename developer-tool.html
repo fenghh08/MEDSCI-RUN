@@ -86,9 +86,9 @@
   .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
   button.primary{ font-family:var(--mono); background:linear-gradient(135deg,var(--membrane),#c22a5c);
     color:#1a0508; font-weight:700; border:none; padding:10px 20px; border-radius:24px; font-size:12.5px; cursor:pointer; }
-  button.secondary{ font-family:var(--mono); background:transparent; color:var(--hud-ink);
+  button.secondary, a.secondary{ font-family:var(--mono); background:transparent; color:var(--hud-ink);
     border:1px solid rgba(255,255,255,.25); padding:9px 18px; border-radius:24px; font-size:12.5px; cursor:pointer; }
-  button.secondary:hover, button.primary:hover{ filter:brightness(1.08); }
+  button.secondary:hover, button.primary:hover, a.secondary:hover{ filter:brightness(1.08); }
   button:disabled{ opacity:.4; cursor:not-allowed; }
   .req{ color:var(--danger); }
 
@@ -217,7 +217,10 @@
   <div id="syncBanner" class="sync-banner off">⏳ Connecting to the shared queue…</div>
   <div id="gitCheckBanner" class="sync-banner off" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
     <span id="gitCheckText">Not checked yet — compares game-data.js content, and the version of both tool files, against GitHub main. Only runs when you click.</span>
-    <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;">
+      <a href="https://github.com/fenghh08/MEDSCI-RUN" target="_blank" rel="noopener" class="secondary" style="text-decoration:none;display:inline-block;">🔗 View repo on GitHub</a>
+      <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
+    </div>
   </div>
 
   <div class="tabs">
@@ -397,7 +400,7 @@
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <h2>📄 Bulk-add items from CSV — for one theme + topic at a time (COMING SOON, STILL FIGURING THIS OUT)</h2>
+      <h2>📄 Bulk-add items from CSV — for one theme + topic at a time (COMING SOON...)</h2>
       <p class="card-sub">Pick the theme and topic these items belong to, then paste CSV text (with a header row) covering just the item fields. Columns, any order, matched by name: <b>label, description</b> (required), <b>mechanism, funFacts, hashtags</b> (optional; funFacts/hashtags separate multiple with a semicolon), <b>course, class</b> (optional — must exactly match an existing course code and class key, e.g. <code>MEDS3002</code> / <code>L14</code>; a row with a course or class that doesn't match a real one is rejected rather than silently creating an untagged mismatch). References and images aren't supported here — add those afterward via edit mode if needed. Each valid row becomes its own entry in the queue, exactly as if added one at a time.</p>
       <div class="row2">
         <label class="field">
@@ -686,7 +689,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-add-bulk-item-csv-and-direct-question-delete'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-08-30-add-github-repo-link'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -2037,6 +2040,23 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
         renderStructureList();
       });
     });
+    // Jumps to the New Item tab with Theme/Topic already picked, same idea
+    // as jumping to New Question for a specific item -- skips re-selecting
+    // the theme/topic dropdowns when you're already looking at exactly
+    // which topic group you want to add into.
+    container.querySelectorAll('[data-add-item-topic]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const [themeId, topicId] = btn.dataset.addItemTopic.split('::');
+        showTab('item');
+        if(i_editModeToggle.checked){ i_editModeToggle.checked = false; i_editModeToggle.dispatchEvent(new Event('change')); }
+        i_theme.value = themeId;
+        i_theme.dispatchEvent(new Event('change'));
+        i_topic.value = topicId;
+        i_topic.dispatchEvent(new Event('change'));
+        i_label.focus();
+      });
+    });
     // Jumping to edit mode first (rather than deleting straight from here)
     // means the delete button they actually click is the same one that
     // already shows the question count and confirms before queuing —
@@ -2079,7 +2099,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
           topicHtml += itemHtml;
         });
         themeItems += topicItems; themeQuestions += topicQuestions;
-        themeHtml += `<div class="struct-topic">${topic.label} <span class="struct-counts">${topicItems} item${topicItems===1?'':'s'} · ${topicQuestions} question${topicQuestions===1?'':'s'}</span></div>${topicHtml}`;
+        themeHtml += `<div class="struct-topic">${topic.label} <span class="struct-counts">${topicItems} item${topicItems===1?'':'s'} · ${topicQuestions} question${topicQuestions===1?'':'s'}</span> <button type="button" class="struct-edit-link" style="font-size:11px;margin-left:8px;" data-add-item-topic="${theme.id}::${topicId}">➕ Add an item here</button></div>${topicHtml}`;
       });
       html += `<div class="struct-theme">${theme.label} <span class="struct-counts">${themeItems} item${themeItems===1?'':'s'} · ${themeQuestions} question${themeQuestions===1?'':'s'}</span></div>${themeHtml}`;
     });
