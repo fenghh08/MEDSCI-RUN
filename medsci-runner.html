@@ -2243,7 +2243,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-08-28-group1'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-08-30-general-search-multiline-lectures'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
   buildCancerGrid();

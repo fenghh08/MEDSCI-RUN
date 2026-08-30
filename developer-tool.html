@@ -216,7 +216,7 @@
 
   <div id="syncBanner" class="sync-banner off">⏳ Connecting to the shared queue…</div>
   <div id="gitCheckBanner" class="sync-banner off" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-    <span id="gitCheckText">Not checked yet — this only compares against GitHub when you ask it to.</span>
+    <span id="gitCheckText">Not checked yet — compares game-data.js content, and the version of both tool files, against GitHub main. Only runs when you click.</span>
     <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
   </div>
 
@@ -362,16 +362,12 @@
             </label>
           </div>
         </div>
-        <span class="new-toggle" id="i_spansToggle">+ This spans several classes — describe it in words instead</span>
+        <span class="new-toggle" id="i_spansToggle">+ This spans several classes — pick more than one</span>
         <div class="new-block" id="i_spansBlock">
-          <label class="field" style="margin-bottom:0;">
-            <span class="fl-label">Course &amp; classes, in words</span>
-            <span class="fl-help">One reference per line — used as-is instead of a single course/class pair, for content that doesn't cleanly belong to one lecture. Can span different courses. Each line becomes its own clickable course tag in the study guide.</span>
-            <textarea id="i_spansText" rows="3" placeholder="MEDS3002 L11 Immune surveillance and cancer
-MEDS3002 L12 Immune cell profiling and biomarkers
-MEDS3002 L19 Angio & lymphangiogenesis
-BIOL1000 L3 Cell signalling overview"></textarea>
-          </label>
+          <span class="fl-label">Add each lecture this spans</span>
+          <span class="fl-help">Pick a course &amp; class above (or add a new one), then click "+ Add this lecture" — repeat for each one. Every entry is still picked from the real course list, never free-typed, so it's never a near-miss that fails to group with everything else tagged the same way.</span>
+          <button type="button" class="secondary" id="i_spansAddBtn" style="margin:8px 0;">+ Add this lecture</button>
+          <div id="i_spansList"></div>
         </div>
         <label class="field">
           <span class="fl-label">References</span>
@@ -481,14 +477,12 @@ BIOL1000 L3 Cell signalling overview"></textarea>
             </label>
           </div>
         </div>
-        <span class="new-toggle" id="q_spansToggle">+ This spans several classes — describe it in words instead</span>
+        <span class="new-toggle" id="q_spansToggle">+ This spans several classes — pick more than one</span>
         <div class="new-block" id="q_spansBlock">
-          <label class="field" style="margin-bottom:0;">
-            <span class="fl-label">Course &amp; classes, in words</span>
-            <span class="fl-help">One reference per line — used as-is instead of a single course/class pair. Can span different courses.</span>
-            <textarea id="q_spansText" rows="3" placeholder="MEDS3002 L11 Immune surveillance and cancer
-MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
-          </label>
+          <span class="fl-label">Add each lecture this spans</span>
+          <span class="fl-help">Pick a course &amp; class above (or add a new one), then click "+ Add this lecture" — repeat for each one.</span>
+          <button type="button" class="secondary" id="q_spansAddBtn" style="margin:8px 0;">+ Add this lecture</button>
+          <div id="q_spansList"></div>
         </div>
       </div>
 
@@ -666,6 +660,17 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
+  const TOOL_VERSION = '2026-08-30-git-check-validated-spans'; // bump this string whenever you send teammates a new copy of this file
+  // This file can't actually read medsci-runner.html's local content — a
+  // browser blocks reading another local file:// file's contents from this
+  // page, the same reason game-data.js has to be loaded via a <script> tag
+  // rather than fetched. So this isn't a live read of the game file sitting
+  // in this folder; it's "what version of the game shipped alongside THIS
+  // copy of the dev tool" — keep this in sync with medsci-runner.html's own
+  // GAME_VERSION every time you update either file together.
+  const GAME_VERSION_FOR_CHECK = '2026-08-30-general-search-multiline-lectures';
+  console.log('[Developer Tool] version', TOOL_VERSION);
+
   const RD = window.RUNNER_DATA;
   if(!RD){
     document.write('<p style="color:#ff3b5c;padding:20px;">Could not load game-data.js — make sure it sits in the same folder as this file, then reload.</p>');
@@ -732,7 +737,7 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
   // <script> tag would, using a shadowed `window` so the parsed result
   // lands in a local variable instead of overwriting this page's own data.
   // ======================================================================
-  const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/fenghh08/MEDSCI-RUN/main/game-data.js';
+  const GITHUB_BASE = 'https://raw.githubusercontent.com/fenghh08/MEDSCI-RUN/main/';
   function parseGameDataText(text){
     const window = {};
     eval(text);
@@ -753,33 +758,73 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
     const courses = Object.keys(data.COURSES||{}).length;
     return { themes, topics, items, questions, courses };
   }
+  async function fetchRaw(filename){
+    const res = await fetch(GITHUB_BASE + filename + '?_=' + Date.now(), { cache:'no-store' }); // cache-bust: raw.githubusercontent.com caches for ~5 min otherwise
+    if(!res.ok) throw new Error(`GitHub returned ${res.status} for ${filename}`);
+    return res.text();
+  }
+  // The HTML tool files (the game itself, and this file) carry a small
+  // hand-bumped version string near the top of their <script> — this reads
+  // that same marker out of the REMOTE copy via a plain regex, without
+  // executing any of that file's code. Only game-data.js gets safely
+  // eval'd (see parseGameDataText above) since it's pure data; there's no
+  // reason to ever execute the tool files themselves just to check a
+  // version string.
+  function extractVersion(text, constName){
+    const m = new RegExp(`const ${constName}\\s*=\\s*'([^']*)'`).exec(text);
+    return m ? m[1] : null;
+  }
   document.getElementById('gitCheckBtn').addEventListener('click', async ()=>{
     const banner = document.getElementById('gitCheckBanner');
-    const text = document.getElementById('gitCheckText');
+    const textEl = document.getElementById('gitCheckText');
     const btn = document.getElementById('gitCheckBtn');
     btn.disabled = true;
-    text.textContent = 'Checking…';
+    textEl.textContent = 'Checking…';
     banner.className = 'sync-banner off';
+    const lines = [];
+    let anyStale = false, anyError = false;
+    // 1. game-data.js -- compare CONTENT (counts), since this file has no
+    // meaningful "version string" of its own, it just IS the content.
     try {
-      const res = await fetch(GITHUB_RAW_URL + '?_=' + Date.now(), { cache:'no-store' }); // cache-bust: raw.githubusercontent.com caches for ~5 min otherwise
-      if(!res.ok) throw new Error(`GitHub returned ${res.status}`);
-      const remoteData = parseGameDataText(await res.text());
-      const remote = countAll(remoteData);
+      const remoteText = await fetchRaw('game-data.js');
+      const remote = countAll(parseGameDataText(remoteText));
       const local = countAll(RD);
       const same = JSON.stringify(remote) === JSON.stringify(local);
-      if(same){
-        banner.className = 'sync-banner ok';
-        text.textContent = `✓ Up to date — matches GitHub main (${local.items} items, ${local.questions} questions).`;
-      } else {
-        banner.className = 'sync-banner off';
-        text.innerHTML = `⚠️ Your game-data.js differs from GitHub main — yours: ${local.items} items / ${local.questions} questions, GitHub: ${remote.items} items / ${remote.questions} questions. This only compares counts (a rough check, not a byte-for-byte diff) — if they differ, run <code>git pull</code> to get the current version.`;
-      }
+      lines.push(same
+        ? `✓ game-data.js up to date (${local.items} items, ${local.questions} questions)`
+        : `⚠️ game-data.js differs — yours: ${local.items} items/${local.questions} questions, GitHub: ${remote.items}/${remote.questions}. Rough count check, not byte-for-byte.`);
+      if(!same) anyStale = true;
     } catch(err){
-      banner.className = 'sync-banner off';
-      text.textContent = `⚠️ Couldn't check GitHub (${err.message}) — no internet, or the repo/branch name changed. Not a problem with your local files.`;
-    } finally {
-      btn.disabled = false;
+      lines.push(`⚠️ Couldn't check game-data.js (${err.message})`);
+      anyError = true;
     }
+    // 2 & 3. The tool files themselves -- compare VERSION STRINGS, since
+    // these are full applications, not data; a byte diff or count isn't
+    // meaningful, but "does the version marker match" tells you plainly
+    // whether there's a newer copy with new features/fixes to download.
+    for(const [filename, constName, localVersion, note] of [
+      ['medsci-runner.html', 'GAME_VERSION', GAME_VERSION_FOR_CHECK, ' (the version paired with this copy of the dev tool — this page can\'t read your actual local game file)'],
+      ['developer-tool.html', 'TOOL_VERSION', TOOL_VERSION, ' (this file, the one you\'re using right now)'],
+    ]){
+      try {
+        const remoteText = await fetchRaw(filename);
+        const remoteVersion = extractVersion(remoteText, constName);
+        if(!remoteVersion){
+          lines.push(`⚠️ Couldn't find a version marker in GitHub's ${filename}`);
+        } else if(remoteVersion === localVersion){
+          lines.push(`✓ ${filename} up to date (${localVersion})${note}`);
+        } else {
+          lines.push(`⚠️ ${filename} has a newer version on GitHub (${remoteVersion} vs ${localVersion})${note} — download the new copy, don't just git pull the data.`);
+          anyStale = true;
+        }
+      } catch(err){
+        lines.push(`⚠️ Couldn't check ${filename} (${err.message})`);
+        anyError = true;
+      }
+    }
+    banner.className = (anyStale || anyError) ? 'sync-banner off' : 'sync-banner ok';
+    textEl.innerHTML = lines.join('<br>');
+    btn.disabled = false;
   });
 
   const KNOWN_THEMES = Object.entries(RD.THEMES).map(([id,t])=>({ id, label:t.label }));
@@ -1002,7 +1047,9 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
     const newClassLabel = document.getElementById(`${prefix}_newClassLabel`);
     const spansToggle = document.getElementById(`${prefix}_spansToggle`);
     const spansBlock = document.getElementById(`${prefix}_spansBlock`);
-    const spansText = document.getElementById(`${prefix}_spansText`);
+    const spansAddBtn = document.getElementById(`${prefix}_spansAddBtn`);
+    const spansList = document.getElementById(`${prefix}_spansList`);
+    let spansEntries = []; // [{ course, class, display }] -- each one picked from the real course structure, never free-typed
 
     function fillCourseSelect(){
       const current = courseSel.value;
@@ -1029,22 +1076,92 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
       classSel.disabled = newClassBlock.classList.contains('show') || !KNOWN_COURSES[courseSel.value];
       onChange();
     });
-    // "Spans several classes" is a separate escape hatch, not another
-    // course/class option — when it's on, it disables the course/class
-    // pickers entirely rather than combining with them, since the whole
-    // point is describing content that doesn't reduce to one pair.
+    fillCourseSelect();
+
+    // Reads whatever's CURRENTLY selected above (existing course/class, or
+    // a new one being typed in) and resolves it to one pick. Shared by the
+    // normal single-pick path and the "add this lecture to the list" path
+    // below, so there's exactly one place that knows how to read the
+    // course/class controls — not two copies that could drift apart.
+    function resolveSinglePick(){
+      const usingNewCourse = newCourseBlock.classList.contains('show');
+      const usingNewClass = newClassBlock.classList.contains('show');
+      let course = '', cls = '', display = '', addCourseSnippet = '', addClassSnippet = '';
+      let newCourseData = null, newClassData = null;
+      if(usingNewCourse){
+        const code = (newCourseCode.value.trim() || 'NEWCOURSE').toUpperCase();
+        const label = newCourseLabel.value.trim() || 'Untitled course';
+        course = code;
+        const firstClassKey = usingNewClass ? (newClassKey.value.trim() || 'L1') : '';
+        const firstClassLabel = usingNewClass ? (newClassLabel.value.trim() || 'Untitled class') : '';
+        if(usingNewClass) cls = firstClassKey;
+        display = usingNewClass ? `${code} ${firstClassKey} ${firstClassLabel}` : code;
+        addCourseSnippet = `// new course — add to COURSES in game-data.js\nCOURSES['${code}'] = {\n  code:'${code}', label:'${esc(label)}',\n  classes:{${usingNewClass ? `\n    '${firstClassKey}': { label:'${esc(firstClassLabel)}' },\n  ` : ''}}\n};`;
+        newCourseData = { code, label, classKey: usingNewClass?firstClassKey:'', classLabel: usingNewClass?firstClassLabel:'' };
+      } else if(courseSel.value){
+        course = courseSel.value;
+        if(usingNewClass){
+          const key = newClassKey.value.trim() || 'L1';
+          const label = newClassLabel.value.trim() || 'Untitled class';
+          cls = key;
+          display = courseDisplayString(course, key) || `${course} ${key} ${label}`;
+          addClassSnippet = `// new class — add to COURSES.${course}.classes in game-data.js\n'${key}': { label:'${esc(label)}' },`;
+          newClassData = { course, key, label };
+        } else {
+          cls = classSel.value;
+          display = courseDisplayString(course, cls) || course;
+        }
+      }
+      return { course, class: cls, display, addCourseSnippet, addClassSnippet, usingNewCourse, usingNewClass, newCourseData, newClassData };
+    }
+    // Registers a newly-typed course/class into KNOWN_COURSES right away
+    // (used both when "+ Add this lecture" is clicked in the spanning list,
+    // and — via commit() below — when the item/question itself is
+    // finally added to the batch for the normal single-pick case).
+    function commitPick(pick){
+      if(pick.usingNewCourse && pick.course && !KNOWN_COURSES[pick.course]){
+        KNOWN_COURSES[pick.course] = { code:pick.course, label: newCourseLabel.value.trim() || 'Untitled course', classes:{} };
+      }
+      if(pick.class && KNOWN_COURSES[pick.course]){
+        KNOWN_COURSES[pick.course].classes[pick.class] = KNOWN_COURSES[pick.course].classes[pick.class] || { label: newClassLabel.value.trim() || 'Untitled class' };
+      }
+      refreshCourseSelects();
+    }
+    function clearPickFields(){
+      newCourseBlock.classList.remove('show'); courseSel.disabled = false;
+      newClassBlock.classList.remove('show');
+      newCourseCode.value=''; newCourseLabel.value=''; newClassKey.value=''; newClassLabel.value='';
+      courseSel.value=''; fillClassSelect();
+    }
+    function renderSpansList(){
+      if(!spansEntries.length){ spansList.innerHTML = ''; return; }
+      spansList.innerHTML = spansEntries.map((e,i)=>`
+        <div class="q-existing-row">
+          <span>🎓 ${esc2(e.display)}</span>
+          <button type="button" class="danger-btn" style="margin:0;" data-remove-span="${i}">✕ Remove</button>
+        </div>`).join('');
+      spansList.querySelectorAll('[data-remove-span]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          spansEntries.splice(Number(btn.dataset.removeSpan), 1);
+          renderSpansList();
+          onChange();
+        });
+      });
+    }
     spansToggle.addEventListener('click', ()=>{
       spansBlock.classList.toggle('show');
-      const spanning = spansBlock.classList.contains('show');
-      courseSel.disabled = spanning; classSel.disabled = spanning || !KNOWN_COURSES[courseSel.value];
-      newCourseToggle.style.display = spanning ? 'none' : '';
-      newClassToggle.style.display = spanning ? 'none' : '';
-      if(spanning){ newCourseBlock.classList.remove('show'); newClassBlock.classList.remove('show'); }
+      if(!spansBlock.classList.contains('show')){ spansEntries = []; renderSpansList(); }
       onChange();
     });
-    spansText.addEventListener('input', onChange);
-    [newCourseCode, newCourseLabel, newClassKey, newClassLabel].forEach(el=>el.addEventListener('input', onChange));
-    fillCourseSelect();
+    spansAddBtn.addEventListener('click', ()=>{
+      const pick = resolveSinglePick();
+      if(!pick.course){ toast('Pick a course above first'); return; }
+      commitPick(pick);
+      spansEntries.push({ course: pick.course, class: pick.class, display: pick.display });
+      renderSpansList();
+      clearPickFields();
+      onChange();
+    });
 
     const api = {
       refresh: fillCourseSelect,
@@ -1052,42 +1169,19 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
       // course/class codes to use plus a preview snippet, WITHOUT writing
       // anything to KNOWN_COURSES — safe to call on every keystroke.
       resolve(){
-        const spanning = spansBlock.classList.contains('show') && spansText.value.trim();
-        if(spanning){
-          return { course:'', class:'', addCourseSnippet:'', addClassSnippet:'', usingNewCourse:false, usingNewClass:false, relatedCourseOverride: spansText.value.trim(), newCourseData:null, newClassData:null };
+        if(spansEntries.length){
+          return { course:'', class:'', addCourseSnippet:'', addClassSnippet:'', usingNewCourse:false, usingNewClass:false, relatedCourseOverride: spansEntries.map(e=>e.display).join('\n'), newCourseData:null, newClassData:null };
         }
-        const usingNewCourse = newCourseBlock.classList.contains('show');
-        const usingNewClass = newClassBlock.classList.contains('show');
-        let course = '', cls = '', addCourseSnippet = '', addClassSnippet = '';
-        let newCourseData = null, newClassData = null;
-
-        if(usingNewCourse){
-          const code = (newCourseCode.value.trim() || 'NEWCOURSE').toUpperCase();
-          const label = newCourseLabel.value.trim() || 'Untitled course';
-          course = code;
-          const firstClassKey = usingNewClass ? (newClassKey.value.trim() || 'L1') : '';
-          const firstClassLabel = usingNewClass ? (newClassLabel.value.trim() || 'Untitled class') : '';
-          if(usingNewClass) cls = firstClassKey;
-          addCourseSnippet = `// new course — add to COURSES in game-data.js\nCOURSES['${code}'] = {\n  code:'${code}', label:'${esc(label)}',\n  classes:{${usingNewClass ? `\n    '${firstClassKey}': { label:'${esc(firstClassLabel)}' },\n  ` : ''}}\n};`;
-          newCourseData = { code, label, classKey: usingNewClass?firstClassKey:'', classLabel: usingNewClass?firstClassLabel:'' };
-        } else if(courseSel.value){
-          course = courseSel.value;
-          if(usingNewClass){
-            const key = newClassKey.value.trim() || 'L1';
-            const label = newClassLabel.value.trim() || 'Untitled class';
-            cls = key;
-            addClassSnippet = `// new class — add to COURSES.${course}.classes in game-data.js\n'${key}': { label:'${esc(label)}' },`;
-            newClassData = { course, key, label };
-          } else {
-            cls = classSel.value;
-          }
-        }
-        return { course, class: cls, addCourseSnippet, addClassSnippet, usingNewCourse, usingNewClass, relatedCourseOverride: '', newCourseData, newClassData };
+        const pick = resolveSinglePick();
+        return { course: pick.course, class: pick.class, addCourseSnippet: pick.addCourseSnippet, addClassSnippet: pick.addClassSnippet, usingNewCourse: pick.usingNewCourse, usingNewClass: pick.usingNewClass, relatedCourseOverride: '', newCourseData: pick.newCourseData, newClassData: pick.newClassData };
       },
       // Actually registers a newly-typed course/class into KNOWN_COURSES —
       // called only when the item/question is actually added to the batch,
       // so a course/class doesn't get permanently created just because the
-      // "+ Add a new course" toggle was clicked and then abandoned.
+      // "+ Add a new course" toggle was clicked and then abandoned. (The
+      // spanning-list path commits immediately on "+ Add this lecture"
+      // instead — see spansAddBtn above — since that click is already an
+      // explicit "yes, add this" action.)
       commit(resolved){
         if(resolved.usingNewCourse && resolved.course && !KNOWN_COURSES[resolved.course]){
           const label = newCourseLabel.value.trim() || 'Untitled course';
@@ -1102,8 +1196,26 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
         newCourseBlock.classList.remove('show'); courseSel.disabled = false;
         newClassBlock.classList.remove('show'); classSel.disabled = !KNOWN_COURSES[courseSel.value];
         newCourseCode.value=''; newCourseLabel.value=''; newClassKey.value=''; newClassLabel.value='';
-        spansBlock.classList.remove('show'); spansText.value='';
-        newCourseToggle.style.display = ''; newClassToggle.style.display = '';
+        spansBlock.classList.remove('show'); spansEntries = []; renderSpansList();
+      },
+      // For edit mode: an existing item/question might already have a
+      // multi-line relatedCourse (or a legacy one-line free-form string
+      // that predates this validated picker entirely). Loads each line
+      // into the spans list, matching it back to a real course/class when
+      // the line's canonical display string happens to match exactly —
+      // otherwise keeps the line as-is, unmatched, so editing the item
+      // doesn't silently discard something that was already there.
+      prefillSpans(relatedCourseString){
+        spansEntries = (relatedCourseString||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{
+          for(const c of Object.values(KNOWN_COURSES)){
+            for(const key of Object.keys(c.classes)){
+              if(courseDisplayString(c.code, key) === line) return { course:c.code, class:key, display:line };
+            }
+          }
+          return { course:'', class:'', display:line }; // doesn't map to any real class — kept verbatim
+        });
+        spansBlock.classList.add('show');
+        renderSpansList();
       },
     };
     _coursePickers.push(api);
@@ -1224,17 +1336,14 @@ MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
     makeImageList(i_imagesEl, renderItem, item.images||[]);
     i_coursePicker.refresh();
     const courseSel = document.getElementById('i_course'), classSel = document.getElementById('i_class');
-    const spansBlock = document.getElementById('i_spansBlock'), spansText = document.getElementById('i_spansText');
     if(!item.course && item.relatedCourse){
       // A legacy relatedCourse string with no course/class pair — this
-      // item spans multiple classes, so prefill the "spans" field instead
-      // of trying to force it into a single course/class it doesn't have.
-      spansBlock.classList.add('show');
-      spansText.value = item.relatedCourse;
+      // item spans multiple classes, so prefill the spans list instead of
+      // trying to force it into a single course/class it doesn't have.
+      i_coursePicker.prefillSpans(item.relatedCourse);
       courseSel.disabled = true; classSel.disabled = true;
     } else {
-      spansBlock.classList.remove('show');
-      spansText.value = '';
+      i_coursePicker.resetNewBlocks();
     }
     courseSel.value = item.course || '';
     courseSel.dispatchEvent(new Event('change'));
