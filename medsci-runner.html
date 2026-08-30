@@ -546,6 +546,15 @@
     const k = c.classes[cls];
     return k ? `${c.code} ${cls} ${k.label}` : c.code;
   }
+  // An item/question's relatedCourse is usually one line, but the "spans
+  // several classes" override can list several lecture references — one
+  // per line, possibly across different courses. Everywhere relatedCourse
+  // is displayed or matched against, it needs to be treated as this list,
+  // not as one opaque string, or a multi-line item would only ever show
+  // up under its first course.
+  function relatedCourseLines(rc){
+    return (rc||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  }
   (function hydrateCourseStrings(){
     Object.values(THEMES).forEach(theme=>{
       Object.values(theme.topics).forEach(topic=>{
@@ -1006,7 +1015,7 @@
     const topics = selectedPracticeTopics();
     const courses = new Set();
     topics.forEach(t=>{
-      (QUESTIONS_BY_THEME_TOPIC[practiceSelectedTheme]?.[t] || []).forEach(q=>{ if(q.relatedCourse) courses.add(q.relatedCourse); });
+      (QUESTIONS_BY_THEME_TOPIC[practiceSelectedTheme]?.[t] || []).forEach(q=>{ relatedCourseLines(q.relatedCourse).forEach(line=>courses.add(line)); });
     });
     const sorted = [...courses].sort();
     practiceCourseSelect.innerHTML = `<option value="">All courses</option>` + sorted.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -1017,7 +1026,7 @@
     const out = [];
     topics.forEach(t=>{
       (QUESTIONS_BY_THEME_TOPIC[practiceSelectedTheme]?.[t] || []).forEach(q=>{
-        if(!course || q.relatedCourse===course) out.push({ q, topic:t });
+        if(!course || relatedCourseLines(q.relatedCourse).includes(course)) out.push({ q, topic:t });
       });
     });
     return out;
@@ -1592,14 +1601,43 @@
     });
     applyGuideSearch();
   }
-  // Filters whatever's currently in guideItemGrid by name/description/tag —
-  // works the same regardless of whether the grid is showing a topic's
-  // items, a course view, a tag view, or the course list, since every
-  // card carries its own data-search text.
+  // Search is ALWAYS global — across every theme and topic, not just
+  // whatever happened to be on screen when you started typing. Clearing
+  // the box returns you to normal topic browsing, right where you left it.
   function applyGuideSearch(){
     const q = guideSearchInput.value.trim().toLowerCase().replace(/^#/,'');
-    guideItemGrid.querySelectorAll('[data-search]').forEach(card=>{
-      card.style.display = (!q || card.dataset.search.includes(q)) ? '' : 'none';
+    if(!q){
+      if(guideMode === 'search') openStudyGuide(guideActiveTheme, guideActiveTopic, null);
+      return;
+    }
+    guideMode = 'search';
+    itemDetailWrap.style.display = 'none';
+    guideTabsWrap.style.display = 'none';
+    guideCourseHeader.style.display = 'none';
+    guideListHeader.style.display = 'none';
+    const matches = [];
+    Object.entries(THEMES).forEach(([themeId, theme])=>{
+      Object.entries(theme.topics).forEach(([topicId, topicData])=>{
+        Object.entries(topicData.items).forEach(([itemId, item])=>{
+          const blob = `${item.label} ${item.description||''} ${(item.hashtags||[]).join(' ')}`.toLowerCase();
+          if(blob.includes(q)) matches.push({ themeId, topicId, itemId, item });
+        });
+      });
+    });
+    guideItemGrid.style.display = 'grid';
+    guideItemGrid.innerHTML = '';
+    if(!matches.length){
+      guideItemGrid.innerHTML = `<p class="p-desc">No matches for "${q}" anywhere in the guide.</p>`;
+      return;
+    }
+    matches.forEach(({themeId, topicId, itemId, item})=>{
+      const meta = TOPICS[topicId];
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.style.color = meta.color;
+      card.innerHTML = `<div class="ic-name">${iconHTML(meta.icon,13)} ${item.label}</div><div class="ic-hint">${THEMES[themeId].label} · ${meta.label}</div>`;
+      card.addEventListener('click', ()=> openItemDetail(topicId, itemId, item));
+      guideItemGrid.appendChild(card);
     });
   }
   guideSearchInput.addEventListener('input', applyGuideSearch);
@@ -1613,9 +1651,13 @@
     itemCat.style.color = meta.color;
     itemName.textContent = item.label;
     if(item.relatedCourse){
-      itemCourse.innerHTML = `🎓 <span style="cursor:pointer;text-decoration:underline;color:var(--membrane);">${item.relatedCourse}</span>`;
+      const courseLines = relatedCourseLines(item.relatedCourse);
+      itemCourse.innerHTML = courseLines.map(line=>`🎓 <span class="course-pill-link" style="cursor:pointer;text-decoration:underline;color:var(--membrane);">${line}</span>`).join('<br>');
       itemCourse.title = 'View everything tagged with this course';
-      itemCourse.onclick = ()=> openCourseView(item.relatedCourse, 'topic');
+      itemCourse.onclick = null;
+      itemCourse.querySelectorAll('.course-pill-link').forEach((el, i)=>{
+        el.addEventListener('click', ()=> openCourseView(courseLines[i], 'topic'));
+      });
     } else {
       itemCourse.textContent = '';
       itemCourse.onclick = null;
@@ -1645,12 +1687,15 @@
     } else {
       itemImages.innerHTML = `<div class="img-placeholder">No image added yet</div>`;
     }
-    itemBackBtn.textContent = (guideMode==='course' || guideMode==='tag') ? '← Back' : '← All topics';
+    itemBackBtn.textContent = (guideMode==='course' || guideMode==='tag') ? '← Back' : (guideMode==='search' ? '← Back to results' : '← All topics');
     itemBackBtn.onclick = ()=>{
       itemDetailWrap.style.display = 'none';
       guideItemGrid.style.display = 'grid';
       if(guideMode==='course' || guideMode==='tag'){
         guideCourseHeader.style.display = 'block';
+      } else if(guideMode==='search'){
+        // search results are still sitting in guideItemGrid, untouched --
+        // no header to restore, just show them again
       } else {
         guideTabsWrap.style.display = 'block';
       }
@@ -1701,7 +1746,7 @@
   // or by picking a specific course from "Browse by course".
   function openCourseView(courseName, origin){
     guideActiveCourse = courseName;
-    openFilteredItemView('course', `🎓 ${courseName}`, origin, item=>item.relatedCourse===courseName);
+    openFilteredItemView('course', `🎓 ${courseName}`, origin, item=>relatedCourseLines(item.relatedCourse).includes(courseName));
   }
   // Shows every item, across every theme and topic, carrying the given
   // hashtag — reached by clicking a #tag chip on an item page.
@@ -1725,7 +1770,9 @@
     Object.values(THEMES).forEach(theme=>{
       Object.values(theme.topics).forEach(topicData=>{
         Object.values(topicData.items).forEach(item=>{
-          if(item.relatedCourse) courseMap[item.relatedCourse] = (courseMap[item.relatedCourse]||0) + 1;
+          relatedCourseLines(item.relatedCourse).forEach(line=>{
+            courseMap[line] = (courseMap[line]||0) + 1;
+          });
         });
       });
     });

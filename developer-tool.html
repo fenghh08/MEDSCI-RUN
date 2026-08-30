@@ -195,7 +195,7 @@
 <body>
 <div id="wrap">
   <h1>Contribute Content</h1>
-  <p class="subtitle">Fill in the fields below — no code needed. This generates <b>ready-to-paste code</b> in the exact format the Runner Game uses. When you're done, copy or download your batch and send it to Eason.</p>
+  <p class="subtitle">Fill in the fields below — no code needed. This generates <b>ready-to-paste code</b> in the exact format the Runner Game uses, and adds it straight to the shared queue below — nothing to copy or send anywhere.</p>
 
   <div class="intro-card">
     <h3>How this works</h3>
@@ -203,8 +203,8 @@
       <li>Type your name below (so Eason knows who submitted what).</li>
       <li>Pick a tab: <b>New Item</b> (a study guide entry), <b>New Question</b>, or <b>New Theme</b> (a whole new subject area).</li>
       <li>Fill in the fields. A code preview updates live on the right — you don't need to understand it, just check the fields look right.</li>
-      <li>Click <b>"Add to batch"</b>. Repeat for as many items/questions as you want to contribute.</li>
-      <li>When you're done, <b>"Copy entire batch"</b> or <b>"Download as .txt"</b> and send it to Eason (with any image/icon files you mentioned, named exactly as shown).</li>
+      <li>Click <b>"Add to batch"</b>. It's saved straight to the shared Team Queue below — synced live, so Eason (and everyone else) can already see it. Repeat for as many items/questions as you want to contribute. If you added any image/icon files, upload them to the shared Drive folder linked below, named exactly as shown.</li>
+      <li>That's it — you don't need to copy, download, or send anything to Eason. He reviews and merges straight from the queue. ("Copy entire queue" / "Download as .txt" are just there if you want a personal record of what you added, or as a fallback if the queue can't sync for some reason.)</li>
     </ol>
   </div>
 
@@ -215,6 +215,10 @@
   </div>
 
   <div id="syncBanner" class="sync-banner off">⏳ Connecting to the shared queue…</div>
+  <div id="gitCheckBanner" class="sync-banner off" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <span id="gitCheckText">Not checked yet — this only compares against GitHub when you ask it to.</span>
+    <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
+  </div>
 
   <div class="tabs">
     <button class="tab" id="tabStructure">📖 Existing structure</button>
@@ -362,8 +366,11 @@
         <div class="new-block" id="i_spansBlock">
           <label class="field" style="margin-bottom:0;">
             <span class="fl-label">Course &amp; classes, in words</span>
-            <span class="fl-help">e.g. "MEDS3002 L9-L12 Immunology of Cancer" — used as-is instead of a single course/class pair, for content that doesn't cleanly belong to one lecture.</span>
-            <input type="text" id="i_spansText" placeholder="e.g. MEDS3002 L9-L12 Immunology of Cancer">
+            <span class="fl-help">One reference per line — used as-is instead of a single course/class pair, for content that doesn't cleanly belong to one lecture. Can span different courses. Each line becomes its own clickable course tag in the study guide.</span>
+            <textarea id="i_spansText" rows="3" placeholder="MEDS3002 L11 Immune surveillance and cancer
+MEDS3002 L12 Immune cell profiling and biomarkers
+MEDS3002 L19 Angio & lymphangiogenesis
+BIOL1000 L3 Cell signalling overview"></textarea>
           </label>
         </div>
         <label class="field">
@@ -478,8 +485,9 @@
         <div class="new-block" id="q_spansBlock">
           <label class="field" style="margin-bottom:0;">
             <span class="fl-label">Course &amp; classes, in words</span>
-            <span class="fl-help">e.g. "MEDS3002 L9-L12 Immunology of Cancer" — used as-is instead of a single course/class pair.</span>
-            <input type="text" id="q_spansText" placeholder="e.g. MEDS3002 L9-L12 Immunology of Cancer">
+            <span class="fl-help">One reference per line — used as-is instead of a single course/class pair. Can span different courses.</span>
+            <textarea id="q_spansText" rows="3" placeholder="MEDS3002 L11 Immune surveillance and cancer
+MEDS3002 L12 Immune cell profiling and biomarkers"></textarea>
           </label>
         </div>
       </div>
@@ -502,6 +510,7 @@
     <div class="card" style="margin-top:16px;">
       <h2>📄 Bulk-add questions from CSV — for one existing item at a time</h2>
       <p class="card-sub">Pick the item these questions belong to, then paste CSV text (with a header row) covering just the question fields — theme/topic/item are already fixed by your pick above, so the CSV doesn't need to repeat them. Columns, any order, matched by name: <b>prompt, optionA, optionB, optionC, optionD, correct</b> (A/B/C/D), <b>explanation, hashtags</b> (separate multiple with a semicolon). Each valid row becomes its own entry in the queue below, exactly as if you'd added it one at a time.</p>
+      <p class="card-sub">Prefer filling this in as a spreadsheet? Use the <a href="https://docs.google.com/spreadsheets/d/1BlL64j0qI--hMyGCwRw3hcRho6tvo_-CfkiIAf01ZG4/edit?usp=sharing" target="_blank" rel="noopener" style="color:var(--membrane);">question-adding template sheet</a> — fill it in, <i>File → Download → Comma Separated Values (.csv)</i>, then paste the contents here.</p>
       <label class="field">
         <span class="fl-label">Which item are these questions for? <span class="req">*</span></span>
         <select id="csv_itemSelect"></select>
@@ -672,7 +681,7 @@
   // exploring the tool. CHANGE THIS to your own 4-digit code before
   // handing this file to contributors.
   // ======================================================================
-  const MAINTAINER_PIN = '1008';
+  const MAINTAINER_PIN = '1234';
   // sessionStorage can throw (SecurityError) for file:// pages in some
   // browsers, which would otherwise take down this whole script before any
   // button worked at all — same class of failure as the Firebase import,
@@ -712,6 +721,66 @@
     toast('Unlock maintainer mode first (Team Queue section, near the bottom)');
     return false;
   }
+
+  // ======================================================================
+  // GITHUB UPDATE CHECK — a manual, read-only sanity check: "is the
+  // game-data.js I have the same as what's on GitHub?" Never runs on its
+  // own (no surprise network calls on page load) — only when clicked.
+  // Fetches the raw file as TEXT (not window.RUNNER_DATA — this page's own
+  // game-data.js is only in memory, there's no way to re-fetch it locally
+  // from a file:// page), then safely parses that text the same way a
+  // <script> tag would, using a shadowed `window` so the parsed result
+  // lands in a local variable instead of overwriting this page's own data.
+  // ======================================================================
+  const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/fenghh08/MEDSCI-RUN/main/game-data.js';
+  function parseGameDataText(text){
+    const window = {};
+    eval(text);
+    if(!window.RUNNER_DATA) throw new Error('That file loaded but didn\'t set window.RUNNER_DATA — is the URL actually pointing at game-data.js?');
+    return window.RUNNER_DATA;
+  }
+  function countAll(data){
+    let items=0, questions=0, topics=0;
+    const themes = Object.keys(data.THEMES||{}).length;
+    Object.values(data.THEMES||{}).forEach(t=>{
+      Object.values(t.topics||{}).forEach(tp=>{
+        topics++;
+        Object.values(tp.items||{}).forEach(it=>{
+          items++; questions += (it.questions||[]).length;
+        });
+      });
+    });
+    const courses = Object.keys(data.COURSES||{}).length;
+    return { themes, topics, items, questions, courses };
+  }
+  document.getElementById('gitCheckBtn').addEventListener('click', async ()=>{
+    const banner = document.getElementById('gitCheckBanner');
+    const text = document.getElementById('gitCheckText');
+    const btn = document.getElementById('gitCheckBtn');
+    btn.disabled = true;
+    text.textContent = 'Checking…';
+    banner.className = 'sync-banner off';
+    try {
+      const res = await fetch(GITHUB_RAW_URL + '?_=' + Date.now(), { cache:'no-store' }); // cache-bust: raw.githubusercontent.com caches for ~5 min otherwise
+      if(!res.ok) throw new Error(`GitHub returned ${res.status}`);
+      const remoteData = parseGameDataText(await res.text());
+      const remote = countAll(remoteData);
+      const local = countAll(RD);
+      const same = JSON.stringify(remote) === JSON.stringify(local);
+      if(same){
+        banner.className = 'sync-banner ok';
+        text.textContent = `✓ Up to date — matches GitHub main (${local.items} items, ${local.questions} questions).`;
+      } else {
+        banner.className = 'sync-banner off';
+        text.innerHTML = `⚠️ Your game-data.js differs from GitHub main — yours: ${local.items} items / ${local.questions} questions, GitHub: ${remote.items} items / ${remote.questions} questions. This only compares counts (a rough check, not a byte-for-byte diff) — if they differ, run <code>git pull</code> to get the current version.`;
+      }
+    } catch(err){
+      banner.className = 'sync-banner off';
+      text.textContent = `⚠️ Couldn't check GitHub (${err.message}) — no internet, or the repo/branch name changed. Not a problem with your local files.`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   const KNOWN_THEMES = Object.entries(RD.THEMES).map(([id,t])=>({ id, label:t.label }));
 
@@ -756,6 +825,16 @@
     // newline inside a single-quoted JS string is invalid and breaks the
     // paste) and escape backslashes/quotes so the string stays valid JS.
     return (s||'').replace(/\r\n|\r|\n/g,' ').replace(/\\/g,'\\\\').replace(/'/g,"\\'").trim();
+  }
+  // For fields that DELIBERATELY carry multiple lines (currently: the
+  // "spans several classes" override, which can list several separate
+  // lecture references, one per line, e.g. across different courses).
+  // Encodes real newlines as a literal \n escape sequence instead of
+  // stripping them — still perfectly valid inside a single-quoted JS
+  // string, and the game splits on that same \n at display time to treat
+  // each line as its own course tag.
+  function escMultiline(s){
+    return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r\n|\r|\n/g,'\\n').trim();
   }
   function toast(msg){
     const t = document.getElementById('toast');
@@ -1277,7 +1356,7 @@
     // takes the place of course/class entirely, matching the legacy
     // relatedCourse-string items already in game-data.js for content that
     // genuinely doesn't belong to one single lecture.
-    if(o.relatedCourseOverride) out += `,\n  relatedCourse:'${esc(o.relatedCourseOverride)}'`;
+    if(o.relatedCourseOverride) out += `,\n  relatedCourse:'${escMultiline(o.relatedCourseOverride)}'`;
     else if(o.course) out += `,\n  course:'${o.course}'${o.class?`,\n  class:'${o.class}'`:''}`;
     if(o.editingItemId) out += `,\n  questions:${serializeQuestionsArray(o.existingQuestions)}`;
     out += ` },`;
@@ -1419,7 +1498,7 @@
     const item = KNOWN_ITEMS.find(it=>it.id===o.itemId);
     const differsFromItem = o.course && (!item || item.course!==o.course || item.class!==o.class);
     let tail = '';
-    if(o.relatedCourseOverride) tail = `,\n  relatedCourse:'${esc(o.relatedCourseOverride)}'`;
+    if(o.relatedCourseOverride) tail = `,\n  relatedCourse:'${escMultiline(o.relatedCourseOverride)}'`;
     else if(differsFromItem) tail = `,\n  course:'${o.course}'${o.class?`,\n  class:'${o.class}'`:''}`;
     return `${pre}// -> THEMES.${o.theme}.topics.${o.topic}.items.${o.itemId}.questions in game-data.js\n{ id:'${o.qId}', prompt:'${esc(o.prompt)}',\n  options:[${optsStr}], correctIndex:${o.correctIndex},\n  explanation:'${esc(o.explanation)}'${hashtagsStr}${tail} },`;
   }
@@ -2121,7 +2200,7 @@
   function serializeValue(val, indent){
     const pad = '  '.repeat(indent), pad1 = '  '.repeat(indent+1);
     if(val === null || val === undefined) return 'null';
-    if(typeof val === 'string') return `'${esc(val)}'`;
+    if(typeof val === 'string') return `'${escMultiline(val)}'`;
     if(typeof val === 'number' || typeof val === 'boolean') return String(val);
     if(Array.isArray(val)){
       if(!val.length) return '[]';
