@@ -220,7 +220,7 @@
     <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
   </div>
   <div class="sync-banner off" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-    <span style="font-size:12px;">My medsci-runner.html version (open it, check the browser console for "[Runner Game] version ...", paste here — only needed again once you actually update that file):</span>
+    <span style="font-size:12px;">My medsci-runner.html version (open it — the version is printed right under the title on the landing screen, no console needed — and paste it here; only needed again once you actually update that file):</span>
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <input type="text" id="localGameVersionInput" style="width:280px;font-size:12px;">
       <button class="secondary" id="localGameVersionSaveBtn">Save</button>
@@ -669,7 +669,7 @@
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-decouple-game-version-tracking'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-08-30-point-to-visible-version-tag'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -683,7 +683,7 @@
   // check button, updated there whenever you bump medsci-runner.html's own
   // GAME_VERSION. Editing medsci-runner.html alone never requires touching
   // this file again.
-  const GAME_VERSION_SEED = '2026-08-30-fix-lane-change-collision-timing'; // only a first-run starting point -- NOT meant to be kept in sync by hand; use the UI field instead
+  const GAME_VERSION_SEED = '2026-08-30-visible-version-tag'; // only a first-run starting point -- NOT meant to be kept in sync by hand; use the UI field instead
   // The input field itself is the source of truth for any check run during
   // THIS page session -- reading it directly means an actual check is never
   // wrong just because localStorage failed to write (which it silently can
