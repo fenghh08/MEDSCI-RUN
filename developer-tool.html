@@ -219,6 +219,13 @@
     <span id="gitCheckText">Not checked yet — compares game-data.js content, and the version of both tool files, against GitHub main. Only runs when you click.</span>
     <button class="secondary" id="gitCheckBtn" style="flex-shrink:0;">🔄 Check GitHub for updates</button>
   </div>
+  <div class="sync-banner off" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <span style="font-size:12px;">My medsci-runner.html version (open it, check the browser console for "[Runner Game] version ...", paste here — only needed again once you actually update that file):</span>
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <input type="text" id="localGameVersionInput" style="width:280px;font-size:12px;">
+      <button class="secondary" id="localGameVersionSaveBtn">Save</button>
+    </div>
+  </div>
 
   <div class="tabs">
     <button class="tab" id="tabStructure">📖 Existing structure</button>
@@ -662,16 +669,43 @@
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-clear-merged-queue-entries'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-08-30-decouple-game-version-tracking'; // bump this string whenever you send teammates a new copy of this file
+  console.log('[Developer Tool] version', TOOL_VERSION);
+
   // This file can't actually read medsci-runner.html's local content — a
   // browser blocks reading another local file:// file's contents from this
   // page, the same reason game-data.js has to be loaded via a <script> tag
-  // rather than fetched. So this isn't a live read of the game file sitting
-  // in this folder; it's "what version of the game shipped alongside THIS
-  // copy of the dev tool" — keep this in sync with medsci-runner.html's own
-  // GAME_VERSION every time you update either file together.
-  const GAME_VERSION_FOR_CHECK = '2026-08-30-fix-course-tag-back-navigation';
-  console.log('[Developer Tool] version', TOOL_VERSION);
+  // rather than fetched. So instead of a hardcoded guess baked into THIS
+  // file's own source (which used to mean editing and committing
+  // developer-tool.html every time medsci-runner.html changed, even though
+  // nothing about the tool itself changed), the version to compare against
+  // is kept in localStorage — set once via the small field next to the
+  // check button, updated there whenever you bump medsci-runner.html's own
+  // GAME_VERSION. Editing medsci-runner.html alone never requires touching
+  // this file again.
+  const GAME_VERSION_SEED = '2026-08-30-fix-lane-change-collision-timing'; // only a first-run starting point -- NOT meant to be kept in sync by hand; use the UI field instead
+  // The input field itself is the source of truth for any check run during
+  // THIS page session -- reading it directly means an actual check is never
+  // wrong just because localStorage failed to write (which it silently can
+  // on file:// pages in some browsers, same as the sound-mute setting).
+  // localStorage is only used to remember the value across a future reload;
+  // if that fails, the worst case is re-typing it once, not a wrong check.
+  function getLocalGameVersion(){
+    const input = document.getElementById('localGameVersionInput');
+    if(input && input.value.trim()) return input.value.trim();
+    try { return localStorage.getItem('localGameVersion') || GAME_VERSION_SEED; }
+    catch(e){ return GAME_VERSION_SEED; }
+  }
+  function setLocalGameVersion(v){
+    try { localStorage.setItem('localGameVersion', v); } catch(e){ /* won't persist across a reload in browsers that block file:// storage -- still works for this session, since getLocalGameVersion() reads the input field first */ }
+  }
+  document.getElementById('localGameVersionInput').value = getLocalGameVersion();
+  document.getElementById('localGameVersionSaveBtn').addEventListener('click', ()=>{
+    const v = document.getElementById('localGameVersionInput').value.trim();
+    if(!v) return;
+    setLocalGameVersion(v);
+    toast('Saved — the next GitHub check will compare against this version.');
+  });
 
   const RD = window.RUNNER_DATA;
   if(!RD){
@@ -688,7 +722,7 @@
   // exploring the tool. CHANGE THIS to your own 4-digit code before
   // handing this file to contributors.
   // ======================================================================
-  const MAINTAINER_PIN = '1008';
+  const MAINTAINER_PIN = '1234';
   // sessionStorage can throw (SecurityError) for file:// pages in some
   // browsers, which would otherwise take down this whole script before any
   // button worked at all — same class of failure as the Firebase import,
@@ -805,7 +839,7 @@
     // meaningful, but "does the version marker match" tells you plainly
     // whether there's a newer copy with new features/fixes to download.
     for(const [filename, constName, localVersion, note] of [
-      ['medsci-runner.html', 'GAME_VERSION', GAME_VERSION_FOR_CHECK, ' (the version paired with this copy of the dev tool — this page can\'t read your actual local game file)'],
+      ['medsci-runner.html', 'GAME_VERSION', getLocalGameVersion(), ' (set via the field below — this page can\'t read your actual local game file)'],
       ['developer-tool.html', 'TOOL_VERSION', TOOL_VERSION, ' (this file, the one you\'re using right now)'],
     ]){
       try {
