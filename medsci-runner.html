@@ -195,6 +195,7 @@
 <div id="wrap">
   <h1>Runner Game</h1>
   <p class="subtitle">study-guide trivia · lane-hop through the vessel · answer to progress the stage</p>
+  <p id="versionTag" style="margin:0 0 8px 3px;color:var(--hud-dim);font-size:10.5px;opacity:.6;">version —</p>
 
   <div id="stageEl">
     <canvas id="game" width="960" height="480"></canvas>
@@ -1525,7 +1526,13 @@
 
     for(const e of entities){
       e.x -= speed*dt;
-      if(!e.hit && e.lane===player.lane && Math.abs(e.x - PLAYER_X) < e.r+22){
+      // Collision checks the player's actual ANIMATED position (player.y),
+      // not player.lane. player.lane snaps to the target lane the instant a
+      // key is pressed (see above), while player.y still has to visually
+      // slide there over the next few frames — checking .lane meant a
+      // question could pop up the moment you pressed a key, before your own
+      // character had even started moving toward the block on screen.
+      if(!e.hit && Math.abs(player.y - laneY(e.lane)) < laneH*0.4 && Math.abs(e.x - PLAYER_X) < e.r+22){
         e.hit = true;
         if(e.type==='glucose'){
           glucose += GAME_CONFIG.glucosePickupValue;
@@ -2360,8 +2367,9 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-08-30-custom-run-redesign-sound-fx'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-08-30-visible-version-tag'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
+  document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
   buildCancerGrid();
   drawVessel();
