@@ -218,6 +218,9 @@
       </div>
     </div>
     <div id="mpEliminationToast"></div>
+    <div id="stallWarning" style="display:none;position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;
+      background:rgba(13,3,8,.85);backdrop-filter:blur(4px);border:1px solid var(--danger);border-radius:10px;
+      padding:8px 16px;font-size:12px;color:var(--hud-ink);text-align:center;pointer-events:none;white-space:nowrap;"></div>
 
     <!-- LANDING -->
     <div class="screen active" id="landingScreen">
@@ -232,7 +235,7 @@
         <div class="cancer-grid" id="cancerGrid"></div>
         <button class="pick-card" id="practiceModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
           <span class="cc-icon">📝</span><span class="cc-name">Study &amp; Practice</span>
-          <span class="cc-blurb">Pick a theme, topic, and course — then browse the guide or run an untimed practice quiz. Works for any theme, not just Cancer.</span>
+          <span class="cc-blurb">Pick a theme, topic, and course — then browse the guide or run a practice quiz (untimed by default). Works for any theme, not just Cancer.</span>
         </button>
         <button class="pick-card" id="mpModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
           <span class="cc-icon">🆚</span><span class="cc-name">Group Race</span>
@@ -253,7 +256,7 @@
       </div>
       <div id="practiceSetupView" style="display:none;">
         <h2>Study &amp; Practice</h2>
-        <p class="desc">Filter by theme, topic, and course — then browse the study guide or start an untimed practice quiz. No glucose, no stages, just questions.</p>
+        <p class="desc">Filter by theme, topic, and course — then browse the study guide or start a practice quiz. Untimed by default, no glucose, no stages, just questions — turn on a timer below if you want the extra pressure.</p>
         <div class="p-sub" style="margin-top:0;">Theme</div>
         <div class="cancer-grid" id="practiceThemeGrid" style="max-width:460px;margin-bottom:14px;"></div>
         <div class="p-sub">Topics <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave all unchecked for every topic)</span></div>
@@ -268,6 +271,9 @@
           <option value="all">Everything that matches</option>
         </select>
         <p id="practiceLimitNote" class="desc" style="margin:-10px 0 14px;font-size:11.5px;"></p>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--hud-ink);cursor:pointer;margin-bottom:18px;">
+          <input type="checkbox" id="practiceTimedCheck"> ⏱ Time each question (30s, same as Runner) — off by default
+        </label>
         <div class="btn-row">
           <button class="secondary" id="practiceBackBtn">← Back</button>
           <button class="secondary" id="practiceBrowseBtn">📚 Browse guide</button>
@@ -831,6 +837,7 @@
   const mcqModal = document.getElementById('mcqModal');
   const mcqCat = document.getElementById('mcqCat');
   const mcqTimerBar = document.getElementById('mcqTimerBar');
+  const mcqTimerWrap = document.getElementById('mcqTimerWrap');
   const mcqPrompt = document.getElementById('mcqPrompt');
   const mcqOptions = document.getElementById('mcqOptions');
   const mcqFeedback = document.getElementById('mcqFeedback');
@@ -894,12 +901,16 @@
   let stageProgress = {};
   let glucose = GAME_CONFIG.startingGlucose;
   let myCorrectCount = 0;
+  let streak = 0; // consecutive correct answers -- resets to 0 on any wrong answer or timeout, in BOTH Runner and Practice
+  let practiceTimed = false; // Runner and Group Race are ALWAYS timed; Practice is opt-in, set from the checkbox each time a session starts
   let myIncorrectCount = 0;
   let sessionLog = [];
   let entities = [], floaters = [];
   let player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
   let obstacleTimer = 0, glucoseTimer = 0, bombTimer = 0;
   let survivalTime = 0; // seconds elapsed in the current run — drives the gradual speed ramp
+  let stallTimer = 0; // seconds since the last topic-block hit -- past STALL_WARNING_AFTER, shows how many more correct answers are needed for the next stage
+  const STALL_WARNING_AFTER = 10; // seconds
   let speed = GAME_CONFIG.baseSpeed;
   let lastT = 0;
   let bgOffset = 0;
@@ -929,7 +940,7 @@
   let practiceTheme = null;
   let pendingQuestion = null;
   let mcqTimerInterval = null;
-  const MCQ_TIME_LIMIT = 30; // seconds -- run out and it counts as a wrong answer, same as picking a real option incorrectly
+  const MCQ_TIME_LIMIT = 45; // seconds -- run out and it counts as a wrong answer, same as picking a real option incorrectly
   let mcqAnswered = false;
   let guideJumpTopic = null;
 
@@ -1175,7 +1186,8 @@
     const shuffled = shuffle(matches);
     const limit = practiceLimitSelect.value;
     practiceQueue = limit==='all' ? shuffled : shuffled.slice(0, parseInt(limit,10));
-    practiceCorrect = 0; practiceAnswered = 0;
+    practiceCorrect = 0; practiceAnswered = 0; streak = 0;
+    practiceTimed = document.getElementById('practiceTimedCheck').checked;
     activeQuestionTheme = practiceSelectedTheme;
     quizMode = 'practice';
     screenState = 'mcq';
@@ -1218,11 +1230,14 @@
     glucose = GAME_CONFIG.startingGlucose;
     myCorrectCount = 0;
     myIncorrectCount = 0;
+    streak = 0;
     sessionLog = [];
     entities = []; floaters = [];
     player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
     speed = GAME_CONFIG.baseSpeed;
     survivalTime = 0;
+    stallTimer = 0;
+    stallWarning.style.display = 'none';
     obstacleTimer = GAME_CONFIG.initialObstacleDelayMs; glucoseTimer = GAME_CONFIG.initialGlucoseDelayMs;
     bombTimer = GAME_CONFIG.bombSpawnBaseMs + Math.random()*GAME_CONFIG.bombSpawnRandMs;
     Object.keys(questionQueues).forEach(k=>delete questionQueues[k]);
@@ -1482,12 +1497,21 @@
     });
     mcqFeedback.style.display = 'none';
     mcqModal.classList.add('active');
-    startMcqTimer();
+    // Runner and Group Race (both quizMode==='runner') are always timed.
+    // Practice only times if the person opted in via the checkbox at
+    // session start -- the bar itself is hidden entirely when untimed,
+    // rather than just not counting down, so it's not showing a stale or
+    // confusing full bar for a question that was never actually racing a clock.
+    const timed = quizMode==='runner' || (quizMode==='practice' && practiceTimed);
+    mcqTimerWrap.style.display = timed ? 'block' : 'none';
+    if(timed) startMcqTimer(); else clearMcqTimer();
   }
   function openMCQ(entity){
     pendingEntity = entity;
     quizMode = 'runner';
     screenState = 'mcq';
+    stallTimer = 0;
+    stallWarning.style.display = 'none';
     const q = nextQuestion(currentCancerId, entity.topic);
     if(!q){ // no questions available — treat as a no-op, resume
       entities = entities.filter(e=>e!==entity);
@@ -1517,12 +1541,23 @@
       else if(i===chosenIndex) b.classList.add('wrong');
     });
     if(correct){
-      if(quizMode==='runner'){ stageProgress[pendingTopic] = (stageProgress[pendingTopic]||0) + 1; myCorrectCount++; }
+      streak++;
+      let bonusFired = false;
+      if(quizMode==='runner'){
+        stageProgress[pendingTopic] = (stageProgress[pendingTopic]||0) + 1; myCorrectCount++;
+        if(streak % GAME_CONFIG.streakBonusEvery === 0){
+          glucose += GAME_CONFIG.streakBonusAmount;
+          updateGlucoseUI();
+          popup(PLAYER_X, player.y-40, `🔥 ${streak} streak +${GAME_CONFIG.streakBonusAmount}`, '#ffd54d');
+          bonusFired = true;
+        }
+      }
       else practiceCorrect++;
-      mcqVerdict.textContent = 'Correct';
+      mcqVerdict.textContent = bonusFired ? `Correct — 🔥 ${streak} in a row! +${GAME_CONFIG.streakBonusAmount} ${lifeCfg().label}` : 'Correct';
       mcqVerdict.className = 'mcq-verdict verdict-good';
       SoundFX.correct();
     } else {
+      streak = 0;
       if(quizMode==='runner'){ glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI(); }
       mcqVerdict.textContent = isTimeout ? "Time's up" : 'Not quite';
       mcqVerdict.className = 'mcq-verdict verdict-bad';
@@ -1570,6 +1605,23 @@
     player.y += (desiredY - player.y) * Math.min(1, dt*10);
     player.lane = player.targetLane;
     player.wob += dt*6;
+
+    // Only meaningful for Runner/Group Race -- Practice has no stages to
+    // stall against. Resets the moment a topic block is actually hit (see
+    // openMCQ), so this only ever fires from genuinely going 10+ real
+    // seconds without engaging a question, not from time spent reading one.
+    stallTimer += dt;
+    if(stallTimer >= STALL_WARNING_AFTER){
+      const st = currentStages()[stageIndex];
+      const remaining = Object.entries(st.requirements).reduce((sum,[topic,need])=> sum + Math.max(0, need - (stageProgress[topic]||0)), 0);
+      if(remaining > 0){
+        const nextRoman = currentStages()[stageIndex+1]?.roman;
+        stallWarning.textContent = `⚠️ Need ${remaining} more correct answer${remaining===1?'':'s'}${nextRoman?` for Stage ${nextRoman}`:' to finish'} — hit a topic block!`;
+        stallWarning.style.display = 'block';
+      } else {
+        stallWarning.style.display = 'none';
+      }
+    }
 
     obstacleTimer -= dt*1000;
     glucoseTimer -= dt*1000;
@@ -2099,6 +2151,7 @@
   const mpLeaderboardPanel = document.getElementById('mpLeaderboardPanel');
   const mpRosterList = document.getElementById('mpRosterList');
   const mpEliminationToast = document.getElementById('mpEliminationToast');
+  const stallWarning = document.getElementById('stallWarning');
 
   let mp = {
     active:false, roomCode:null, playerId:null, isHost:false,
@@ -2430,7 +2483,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-09-02-practice-limit-and-timer'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-09-02-streak-stall-warning-timer-toggle'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
