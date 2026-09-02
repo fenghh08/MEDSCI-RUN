@@ -228,15 +228,15 @@
    GAME_CONFIG — every tunable number lives here in one place.
    ====================================================================== */
   const GAME_CONFIG = {
-    baseSpeed: 700,            // px/s at Stage I
+    baseSpeed: 750,            // px/s at Stage I
     speedRampPerStage: 20,     // added per stage index (0-based) — one-time bump on stage change
     speedRampPerSecond: 10,    // added continuously for every second survived — this is what makes it feel gradual
-    maxSpeed: 900,             // speed never exceeds this
+    maxSpeed: 1000,             // speed never exceeds this
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
-    obstacleSpawnBaseMs: 900,  // topic-block spawn interval = base + random(0..rand)
-    obstacleSpawnRandMs: 300,
+    obstacleSpawnBaseMs: 450,  // topic-block spawn interval = base + random(0..rand)
+    obstacleSpawnRandMs: 100,
     glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
     glucoseSpawnRandMs: 300,
     initialObstacleDelayMs: 1200, // delay before the very first topic block spawns
@@ -1666,7 +1666,7 @@
     cancer: [
       /* "scenario" is patient-facing narrative — this is also where a real
          case study can be dropped in later (per stage). */
-      { n:1, roman:'I', requirements:{ genetics:10 },
+      { n:1, roman:'I', requirements:{ genetics:5, immunology:5 },
         scenario:"Patient presents with fatigue and unexplained bruising. Bloodwork shows an abnormal white cell count — the care team orders genetic testing to find out exactly what's driving it." },
       { n:2, roman:'II', requirements:{ genetics:5, immunology:10 },
         scenario:"The genetic picture is in. Now the patient's own immune system is in the fight — how well it can recognise and respond to the disease will shape what comes next." },
