@@ -240,6 +240,11 @@
       <div id="structureList"></div>
     </div>
     <div class="card" style="margin-top:16px;">
+      <h2>🔍 What's missing</h2>
+      <p class="card-sub">Every merged item, checked against description, mechanism, images, fun facts, hashtags, references, and whether it has any questions at all. Nothing here is required — some of these are genuinely optional — but it's the fastest way to spot placeholder items (e.g. from a lecture import) that still need real content, or an item with zero questions that nobody can actually be quizzed on yet.</p>
+      <div id="incompleteSummary"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
       <h2>Courses &amp; classes</h2>
       <p class="card-sub">The university courses items/questions can be tagged with. Pick from these in the forms, or add a new course/class right there if what you need isn't listed yet.</p>
       <div id="courseStructureList"></div>
@@ -546,6 +551,30 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
         <button class="primary" id="csv_parseBtn">Parse &amp; add all to queue</button>
       </div>
     </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>📄 Add questions by lecture — mixed themes/topics/items in one paste</h2>
+      <p class="card-sub">For a whole lecture's worth of questions at once, even when they land on different items, topics, or themes — theme/topic/item are given per row instead of picked once. <b>If a row's item doesn't already exist, it's created automatically as a placeholder</b> (just the label — no description yet) so the question has somewhere to attach; it'll show up flagged as incomplete until someone fills the rest in later. Course &amp; class below is optional and only applies to newly-created placeholder items.</p>
+      <label class="field">
+        <span class="fl-label">Course &amp; class for any new items (optional)</span>
+        <select id="lec_course"></select>
+      </label>
+      <div class="new-block show" id="lec_classBlock">
+        <label class="field" style="margin-bottom:0;">
+          <span class="fl-label">Class</span>
+          <select id="lec_class" disabled></select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="fl-label">Paste CSV text</span>
+        <textarea id="lec_textarea" rows="10" placeholder="theme,topic,item,prompt,optionA,optionB,optionC,optionD,correct,explanation,hashtags
+Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,JAK2,mTOR,PI3K,A,&quot;Ibrutinib irreversibly binds BTK.&quot;,Leukemia"></textarea>
+      </label>
+      <div id="lec_preview" style="margin:10px 0;font-size:12px;color:var(--hud-dim);"></div>
+      <div class="btn-row">
+        <button class="primary" id="lec_parseBtn">Parse &amp; add all to queue</button>
+      </div>
+    </div>
   </div>
 
   <!-- ================= THEME FORM ================= -->
@@ -689,7 +718,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-08-30-add-github-repo-link'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-09-02-lecture-import-and-audit'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -699,7 +728,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
   // in this folder; it's "what version of the game shipped alongside THIS
   // copy of the dev tool" — keep this in sync with medsci-runner.html's own
   // GAME_VERSION every time you update either file together.
-  const GAME_VERSION_FOR_CHECK = '2026-08-30-visible-version-tag';
+  const GAME_VERSION_FOR_CHECK = '2026-09-02-practice-limit-and-timer';
 
   const RD = window.RUNNER_DATA;
   if(!RD){
@@ -1873,6 +1902,125 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
     csv_preview.textContent = '';
   });
 
+  // ================= LECTURE IMPORT (mixed themes/topics/items, auto-creates placeholder items) =================
+  const lec_course = document.getElementById('lec_course');
+  const lec_class = document.getElementById('lec_class');
+  const lec_textarea = document.getElementById('lec_textarea');
+  const lec_preview = document.getElementById('lec_preview');
+  function fillLecCourseSelect(){
+    const current = lec_course.value;
+    lec_course.innerHTML = `<option value="">— none —</option>` + Object.values(KNOWN_COURSES).map(c=>`<option value="${c.code}">${c.code} — ${c.label}</option>`).join('');
+    if([...lec_course.options].some(o=>o.value===current)) lec_course.value = current;
+    fillLecClassSelect();
+  }
+  function fillLecClassSelect(){
+    const c = KNOWN_COURSES[lec_course.value];
+    lec_class.disabled = !c;
+    lec_class.innerHTML = `<option value="">— none —</option>` + (c ? Object.entries(c.classes).map(([k,v])=>`<option value="${k}">${k} — ${v.label}</option>`).join('') : '');
+  }
+  lec_course.addEventListener('change', ()=>{ fillLecClassSelect(); renderLecPreview(); });
+  lec_class.addEventListener('change', renderLecPreview);
+  fillLecCourseSelect();
+
+  // Pure -- never touches KNOWN_ITEMS. The "decidedThisBatch" map only dedupes
+  // WITHIN this one parse (so two rows naming the same new item in one paste
+  // resolve to the same placeholder), not across calls -- actually creating
+  // the placeholder items happens once, for real, only when "Parse & add all"
+  // is clicked, never during the live preview that re-parses on every keystroke.
+  function parseLectureQuestions(){
+    const rows = parseCSV(lec_textarea.value);
+    if(rows.length < 2) return { valid:[], newItems:[], errors:['Paste a header row plus at least one question row.'] };
+    const header = rows[0].map(h=>h.trim().toLowerCase());
+    const col = name => header.indexOf(name);
+    const idx = { theme:col('theme'), topic:col('topic'), item:col('item'), prompt:col('prompt'), a:col('optiona'), b:col('optionb'), c:col('optionc'), d:col('optiond'), correct:col('correct'), explanation:col('explanation'), hashtags:col('hashtags') };
+    const missingCols = ['theme','topic','item','prompt','a','b','c','d','correct','explanation'].filter(k=>idx[k]<0);
+    if(missingCols.length) return { valid:[], newItems:[], errors:[`Missing required column(s): ${missingCols.map(k=>({a:'optionA',b:'optionB',c:'optionC',d:'optionD'}[k]||k)).join(', ')}.`] };
+    const lecCourse = lec_course.value, lecClass = lec_class.value;
+    const valid = [], newItems = [], errors = [];
+    const decidedThisBatch = {}; // theme::topic::labelLower -> itemId, scoped to THIS parse only
+    for(let r=1; r<rows.length; r++){
+      const row = rows[r];
+      if(row.every(f=>(f||'').trim()==='')) continue;
+      const rowNum = r+1;
+      const themeInput = (row[idx.theme]||'').trim();
+      const topicInput = (row[idx.topic]||'').trim();
+      const itemLabel = (row[idx.item]||'').trim();
+      const prompt = (row[idx.prompt]||'').trim();
+      const options = [row[idx.a], row[idx.b], row[idx.c], row[idx.d]].map(v=>(v||'').trim());
+      const correctLetter = (row[idx.correct]||'').trim().toUpperCase();
+      const explanation = (row[idx.explanation]||'').trim();
+      const hashtags = idx.hashtags>=0 ? (row[idx.hashtags]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
+      if(!themeInput){ errors.push(`Row ${rowNum}: missing theme, skipped.`); continue; }
+      if(!topicInput){ errors.push(`Row ${rowNum}: missing topic, skipped.`); continue; }
+      if(!itemLabel){ errors.push(`Row ${rowNum}: missing item, skipped.`); continue; }
+      if(!prompt){ errors.push(`Row ${rowNum}: missing prompt, skipped.`); continue; }
+      if(options.some(o=>!o)){ errors.push(`Row ${rowNum}: needs all four options, skipped.`); continue; }
+      const correctIndex = 'ABCD'.indexOf(correctLetter);
+      if(correctIndex<0){ errors.push(`Row ${rowNum}: Correct must be A, B, C, or D (got "${correctLetter}"), skipped.`); continue; }
+      if(!explanation){ errors.push(`Row ${rowNum}: missing explanation, skipped.`); continue; }
+      const theme = KNOWN_THEMES.find(t=>t.id.toLowerCase()===themeInput.toLowerCase() || t.label.toLowerCase()===themeInput.toLowerCase());
+      if(!theme){ errors.push(`Row ${rowNum}: theme "${themeInput}" doesn't match any existing theme, skipped.`); continue; }
+      const topicEntry = Object.entries(KNOWN_TOPICS).find(([id,t])=> id.toLowerCase()===topicInput.toLowerCase() || t.label.toLowerCase()===topicInput.toLowerCase());
+      if(!topicEntry){ errors.push(`Row ${rowNum}: topic "${topicInput}" doesn't match any existing topic, skipped.`); continue; }
+      const topicId = topicEntry[0];
+      let itemId;
+      const existing = KNOWN_ITEMS.find(it=>it.theme===theme.id && it.topic===topicId && it.label.toLowerCase()===itemLabel.toLowerCase());
+      const dedupeKey = `${theme.id}::${topicId}::${itemLabel.toLowerCase()}`;
+      if(existing){
+        itemId = existing.id;
+      } else if(decidedThisBatch[dedupeKey]){
+        itemId = decidedThisBatch[dedupeKey];
+      } else {
+        itemId = slugify(itemLabel) + '_' + randSuffix();
+        decidedThisBatch[dedupeKey] = itemId;
+        newItems.push({
+          theme: theme.id, topicId, itemId, label: itemLabel, description: '', mechanism: '',
+          funFacts: [], hashtags: [], refs: [], images: [], course: lecCourse, class: lecCourse?lecClass:'', relatedCourseOverride: '',
+          usingNewTopic: false, addCourseSnippet: '', addClassSnippet: '',
+          courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
+        });
+      }
+      valid.push({
+        theme: theme.id, topic: topicId, itemId,
+        qId: 'q-' + topicId + '-' + randSuffix(),
+        prompt, options, correctIndex, explanation, hashtags,
+        course: '', class: '', relatedCourseOverride: '',
+        addCourseSnippet: '', addClassSnippet: '',
+        courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
+      });
+    }
+    return { valid, newItems, errors };
+  }
+  function renderLecPreview(){
+    if(!lec_textarea.value.trim()){ lec_preview.textContent = ''; return; }
+    const { valid, newItems, errors } = parseLectureQuestions();
+    let msg = valid.length ? `✅ ${valid.length} question${valid.length===1?'':'s'} ready to add${newItems.length?`, creating ${newItems.length} new placeholder item${newItems.length===1?'':'s'} (${newItems.map(i=>i.label).join(', ')})`:''}.` : '';
+    if(errors.length) msg += (msg?' ':'') + `⚠️ ${errors.join(' ')}`;
+    lec_preview.textContent = msg;
+  }
+  lec_textarea.addEventListener('input', renderLecPreview);
+  document.getElementById('lec_parseBtn').addEventListener('click', ()=>{
+    const { valid, newItems, errors } = parseLectureQuestions();
+    if(!valid.length){ toast(errors[0] || 'Nothing to add'); return; }
+    newItems.forEach(o=>{
+      KNOWN_ITEMS.push({ id:o.itemId, theme:o.theme, topic:o.topicId, label:o.label, course:o.course, class:o.class });
+      const themeLabel = (KNOWN_THEMES.find(t=>t.id===o.theme)||{}).label || o.theme;
+      pushToQueue({ type:'item', title:o.label, code:itemCodeString(o), note:`${themeLabel} · ${o.topicId} · placeholder via lecture import`, data:o });
+    });
+    valid.forEach(o=>{
+      const themeLabel = (KNOWN_THEMES.find(t=>t.id===o.theme)||{}).label || o.theme;
+      pushToQueue({ type:'question', title:o.prompt.slice(0,50), code:questionCodeString(o), note:`${themeLabel} · ${o.topic} · via lecture import`, data:o });
+    });
+    refreshQuestionItemSelect();
+    refreshEditItemSelect();
+    refreshCsvItemSelect();
+    refreshCsvItemFormSelects();
+    renderStructureList();
+    toast(`Added ${valid.length} question${valid.length===1?'':'s'}${newItems.length?` and ${newItems.length} new item${newItems.length===1?'':'s'}`:''} to queue`);
+    lec_textarea.value = '';
+    lec_preview.textContent = '';
+  });
+
   // ================= COURSE FORM =================
   const c_label = document.getElementById('c_label');
   const c_icon = document.getElementById('c_icon');
@@ -1999,6 +2147,14 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
     q_topic.dispatchEvent(new Event('change'));
     q_itemSelect.value = itemId;
     q_itemSelect.dispatchEvent(new Event('change'));
+    // The CSV bulk-import section has its own separate item picker -- it
+    // was never being updated here, so it silently stayed on whatever item
+    // (or the default) it last had, even though you'd just jumped here
+    // specifically for a different one.
+    if([...csv_itemSelect.options].some(o=>o.value===itemId)){
+      csv_itemSelect.value = itemId;
+      csv_itemSelect.dispatchEvent(new Event('change'));
+    }
   }
   function wireEditButtons(container){
     container.querySelectorAll('[data-edit-item]').forEach(btn=>{
@@ -2106,9 +2262,39 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
     structureList.innerHTML = html;
     structStats.innerHTML = `<span><b>${KNOWN_THEMES.length}</b> themes</span><span><b>${totalTopics}</b> topics</span><span><b>${totalItems}</b> items</span><span><b>${totalQuestions}</b> questions</span>${pendingCount?`<span style="color:#ffab4d;"><b>${pendingCount}</b> pending merge</span>`:''}`;
     wireEditButtons(structureList);
+    renderIncompleteSummary();
     applyStructSearch();
     renderCourseStructureList();
     renderHashtagStructureList();
+  }
+  // Checks every MERGED item (pending ones are already flagged separately
+  // above, via pendingCount) against the fields most likely to be
+  // genuinely missing -- particularly useful for spotting placeholder
+  // items left behind by a lecture import, which start with only a label.
+  function renderIncompleteSummary(){
+    const el = document.getElementById('incompleteSummary');
+    const rows = [];
+    KNOWN_ITEMS.forEach(it=>{
+      const full = RD.THEMES[it.theme]?.topics?.[it.topic]?.items?.[it.id];
+      if(!full) return; // not merged yet -- already counted as "pending merge" above
+      const missing = [];
+      if(!full.description || !full.description.trim()) missing.push('description');
+      if(!full.mechanism || !full.mechanism.trim()) missing.push('mechanism');
+      if(!full.images || !full.images.length) missing.push('images');
+      if(!full.funFacts || !full.funFacts.length) missing.push('fun facts');
+      if(!full.hashtags || !full.hashtags.length) missing.push('hashtags');
+      if(!full.refs || !full.refs.length) missing.push('references');
+      if(!full.questions || !full.questions.length) missing.push('questions');
+      if(missing.length) rows.push({ it, missing, noQuestions: !full.questions || !full.questions.length });
+    });
+    if(!rows.length){ el.innerHTML = `<div class="struct-empty" style="margin-left:0;">— every merged item has all fields filled in —</div>`; return; }
+    rows.sort((a,b)=> b.missing.length - a.missing.length);
+    el.innerHTML = rows.map(({it, missing, noQuestions})=>`
+      <div class="q-existing-row"${noQuestions?' style="border-color:var(--danger);"':''}>
+        <span>${noQuestions?'⚠️ ':''}<b>${esc2(it.label)}</b> <span style="color:var(--hud-dim);">— missing ${missing.join(', ')}</span></span>
+        <button type="button" class="struct-edit-link" data-edit-item="${it.id}" style="margin:0;">✏️ Edit</button>
+      </div>`).join('');
+    wireEditButtons(el);
   }
   // Search filters both plain rows and toggle items by their data-search
   // text — a hit inside a toggle auto-expands it so the match is visible
@@ -2248,7 +2434,34 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
           <div class="qi-meta">by ${entry.contributorName||'Anonymous'}${entry.createdAt?' · '+new Date(entry.createdAt).toLocaleString():''}</div>
         </div>
         <button class="list-remove" type="button" title="Remove once Eason's merged this">✕</button>`;
-      row.querySelector('.list-remove').addEventListener('click', ()=> removeFromQueue(key));
+      row.querySelector('.list-remove').addEventListener('click', ()=>{
+        if(!requireMaintainerUnlock()) return;
+        const entry = batch[key];
+        // KNOWN_ITEMS/KNOWN_THEMES only ever grow when something's added to
+        // the queue (so it's immediately pickable elsewhere) -- they never
+        // shrink on their own. Without this, un-queuing a brand-new item or
+        // theme before it's merged leaves a phantom entry behind forever:
+        // still showing as "pending merge" in Existing Structure, still
+        // sitting in every dropdown, even though nothing references it
+        // anymore. Only clean up if it's genuinely not real yet (RD has no
+        // matching entry) -- if it somehow already exists for real, leave it.
+        if(entry && entry.type === 'item' && entry.data && !RD.THEMES[entry.data.theme]?.topics?.[entry.data.topicId]?.items?.[entry.data.itemId]){
+          const idx = KNOWN_ITEMS.findIndex(it=>it.id===entry.data.itemId);
+          if(idx>=0) KNOWN_ITEMS.splice(idx,1);
+        }
+        if(entry && entry.type === 'course' && entry.data && !RD.THEMES[entry.data.id]){
+          const idx = KNOWN_THEMES.findIndex(t=>t.id===entry.data.id);
+          if(idx>=0) KNOWN_THEMES.splice(idx,1);
+        }
+        removeFromQueue(key);
+        renderStructureList();
+        refreshQuestionItemSelect();
+        refreshEditItemSelect();
+        refreshCsvItemSelect();
+        refreshCsvItemFormSelects();
+        refreshCourseSelects();
+        [i_theme, q_theme, csvitem_theme].forEach(sel=>fillThemeSelect(sel));
+      });
       batchList.appendChild(row);
     });
   }
