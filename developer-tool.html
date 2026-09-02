@@ -235,13 +235,17 @@
     <div class="card">
       <h2>What's already in the game</h2>
       <p class="card-sub">Theme → topic → item — click any item to expand its full description, mechanism, tags, and every question tied to it. This is generated live from game-data.js, so it's always up to date. Anything shown as "pending" was added this session and hasn't been merged into game-data.js yet, so its full detail isn't available here until it has.</p>
+      <div class="btn-row" style="margin-bottom:8px;">
+        <button type="button" class="secondary" id="jumpToLectureImportBtn">📄 Add questions by lecture</button>
+      </div>
       <div class="struct-stats" id="structStats"></div>
       <input type="text" class="struct-search" id="structSearchInput" placeholder="🔍 Search items and questions by name, description, or #tag…">
       <div id="structureList"></div>
     </div>
     <div class="card" style="margin-top:16px;">
       <h2>🔍 What's missing</h2>
-      <p class="card-sub">Every merged item, checked against description, mechanism, images, fun facts, hashtags, references, and whether it has any questions at all. Nothing here is required — some of these are genuinely optional — but it's the fastest way to spot placeholder items (e.g. from a lecture import) that still need real content, or an item with zero questions that nobody can actually be quizzed on yet.</p>
+      <p class="card-sub">Every merged item, checked against whichever fields you care about below — nothing here is truly required, so if fun facts don't matter to your team, uncheck it and it stops cluttering the list.</p>
+      <div class="checks" id="incompleteFilterChecks" style="margin-bottom:14px;"></div>
       <div id="incompleteSummary"></div>
     </div>
     <div class="card" style="margin-top:16px;">
@@ -555,6 +559,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
     <div class="card" style="margin-top:16px;">
       <h2>📄 Add questions by lecture — mixed themes/topics/items in one paste</h2>
       <p class="card-sub">For a whole lecture's worth of questions at once, even when they land on different items, topics, or themes — theme/topic/item are given per row instead of picked once. <b>If a row's item doesn't already exist, it's created automatically as a placeholder</b> (just the label — no description yet) so the question has somewhere to attach; it'll show up flagged as incomplete until someone fills the rest in later. Course &amp; class below is optional and only applies to newly-created placeholder items.</p>
+      <p class="card-sub">Prefer a spreadsheet? The <a href="https://docs.google.com/spreadsheets/d/1BlL64j0qI--hMyGCwRw3hcRho6tvo_-CfkiIAf01ZG4/edit?usp=sharing" target="_blank" rel="noopener" style="color:var(--membrane);">question-adding template sheet</a> works here too — just add three columns at the start (<code>theme</code>, <code>topic</code>, <code>item</code>) before the existing ones, fill those in per row, then export and paste as usual.</p>
       <label class="field">
         <span class="fl-label">Course &amp; class for any new items (optional)</span>
         <select id="lec_course"></select>
@@ -718,7 +723,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-09-02-lecture-import-and-audit'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-09-02-fix-stale-default-template'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -728,7 +733,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   // in this folder; it's "what version of the game shipped alongside THIS
   // copy of the dev tool" — keep this in sync with medsci-runner.html's own
   // GAME_VERSION every time you update either file together.
-  const GAME_VERSION_FOR_CHECK = '2026-09-02-practice-limit-and-timer';
+  const GAME_VERSION_FOR_CHECK = '2026-09-02-streak-stall-warning-timer-toggle';
 
   const RD = window.RUNNER_DATA;
   if(!RD){
@@ -1991,12 +1996,30 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     }
     return { valid, newItems, errors };
   }
+  // Deliberately detailed, not just a count -- the whole point is catching
+  // a typo'd theme/topic BEFORE it creates a wrong placeholder item, since
+  // "oh, 3 new items got created" doesn't tell you WHICH theme/topic they
+  // landed under. Every new item's destination is spelled out, plainly,
+  // before the button that actually commits it.
   function renderLecPreview(){
-    if(!lec_textarea.value.trim()){ lec_preview.textContent = ''; return; }
+    if(!lec_textarea.value.trim()){ lec_preview.innerHTML = ''; return; }
     const { valid, newItems, errors } = parseLectureQuestions();
-    let msg = valid.length ? `✅ ${valid.length} question${valid.length===1?'':'s'} ready to add${newItems.length?`, creating ${newItems.length} new placeholder item${newItems.length===1?'':'s'} (${newItems.map(i=>i.label).join(', ')})`:''}.` : '';
-    if(errors.length) msg += (msg?' ':'') + `⚠️ ${errors.join(' ')}`;
-    lec_preview.textContent = msg;
+    let html = '';
+    if(valid.length){
+      html += `<div style="color:var(--good);margin-bottom:6px;">✅ ${valid.length} question${valid.length===1?'':'s'} ready to add.</div>`;
+      if(newItems.length){
+        const themeLabel = id => (KNOWN_THEMES.find(t=>t.id===id)||{}).label || id;
+        const topicLabel = id => (KNOWN_TOPICS[id]||{}).label || id;
+        html += `<div style="margin-bottom:6px;"><b>${newItems.length} new placeholder item${newItems.length===1?'':'s'} will be created:</b></div>`;
+        html += newItems.map(i=>`<div style="margin:2px 0 2px 12px;">📄 <b>${esc2(i.label)}</b> — ${esc2(themeLabel(i.theme))} · ${esc2(topicLabel(i.topicId))}${i.course?` · ${esc2(i.course)}${i.class?' '+esc2(i.class):''}`:''}</div>`).join('');
+      }
+      const existingCount = new Set(valid.map(v=>v.itemId)).size - newItems.length;
+      if(existingCount > 0){
+        html += `<div style="margin-top:6px;">Questions also being added to <b>${existingCount}</b> existing item${existingCount===1?'':'s'} already in the game.</div>`;
+      }
+    }
+    if(errors.length) html += `<div style="color:var(--danger);margin-top:6px;">⚠️ ${errors.join(' ')}</div>`;
+    lec_preview.innerHTML = html;
   }
   lec_textarea.addEventListener('input', renderLecPreview);
   document.getElementById('lec_parseBtn').addEventListener('click', ()=>{
@@ -2019,6 +2042,11 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     toast(`Added ${valid.length} question${valid.length===1?'':'s'}${newItems.length?` and ${newItems.length} new item${newItems.length===1?'':'s'}`:''} to queue`);
     lec_textarea.value = '';
     lec_preview.textContent = '';
+  });
+  document.getElementById('jumpToLectureImportBtn').addEventListener('click', ()=>{
+    showTab('question');
+    if(lec_textarea.scrollIntoView) lec_textarea.scrollIntoView({behavior:'smooth', block:'center'});
+    lec_textarea.focus();
   });
 
   // ================= COURSE FORM =================
@@ -2271,23 +2299,44 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   // above, via pendingCount) against the fields most likely to be
   // genuinely missing -- particularly useful for spotting placeholder
   // items left behind by a lecture import, which start with only a label.
+  // Which fields count is up to whoever's looking -- the checkboxes are
+  // rendered once and read fresh on every call, so re-rendering the list
+  // (which happens often, e.g. after every queue change) never resets
+  // what someone's chosen to filter by.
+  const INCOMPLETE_FIELDS = [
+    { key:'description', label:'Description' },
+    { key:'mechanism', label:'Mechanism' },
+    { key:'images', label:'Images' },
+    { key:'funFacts', label:'Fun facts' },
+    { key:'hashtags', label:'Hashtags' },
+    { key:'refs', label:'References' },
+    { key:'questions', label:'Has zero questions' },
+  ];
+  function renderIncompleteFilterChecks(){
+    const container = document.getElementById('incompleteFilterChecks');
+    container.innerHTML = INCOMPLETE_FIELDS.map(f=>`<label><input type="checkbox" class="incfilter-check" value="${f.key}" checked> ${f.label}</label>`).join('');
+    container.querySelectorAll('.incfilter-check').forEach(cb=>cb.addEventListener('change', renderIncompleteSummary));
+  }
   function renderIncompleteSummary(){
     const el = document.getElementById('incompleteSummary');
+    const active = new Set([...document.querySelectorAll('.incfilter-check:checked')].map(cb=>cb.value));
+    const fieldLabel = { description:'description', mechanism:'mechanism', images:'images', funFacts:'fun facts', hashtags:'hashtags', refs:'references', questions:'questions' };
     const rows = [];
     KNOWN_ITEMS.forEach(it=>{
       const full = RD.THEMES[it.theme]?.topics?.[it.topic]?.items?.[it.id];
       if(!full) return; // not merged yet -- already counted as "pending merge" above
       const missing = [];
-      if(!full.description || !full.description.trim()) missing.push('description');
-      if(!full.mechanism || !full.mechanism.trim()) missing.push('mechanism');
-      if(!full.images || !full.images.length) missing.push('images');
-      if(!full.funFacts || !full.funFacts.length) missing.push('fun facts');
-      if(!full.hashtags || !full.hashtags.length) missing.push('hashtags');
-      if(!full.refs || !full.refs.length) missing.push('references');
-      if(!full.questions || !full.questions.length) missing.push('questions');
-      if(missing.length) rows.push({ it, missing, noQuestions: !full.questions || !full.questions.length });
+      if(active.has('description') && (!full.description || !full.description.trim())) missing.push(fieldLabel.description);
+      if(active.has('mechanism') && (!full.mechanism || !full.mechanism.trim())) missing.push(fieldLabel.mechanism);
+      if(active.has('images') && (!full.images || !full.images.length)) missing.push(fieldLabel.images);
+      if(active.has('funFacts') && (!full.funFacts || !full.funFacts.length)) missing.push(fieldLabel.funFacts);
+      if(active.has('hashtags') && (!full.hashtags || !full.hashtags.length)) missing.push(fieldLabel.hashtags);
+      if(active.has('refs') && (!full.refs || !full.refs.length)) missing.push(fieldLabel.refs);
+      const noQuestions = !full.questions || !full.questions.length;
+      if(active.has('questions') && noQuestions) missing.push(fieldLabel.questions);
+      if(missing.length) rows.push({ it, missing, noQuestions: active.has('questions') && noQuestions });
     });
-    if(!rows.length){ el.innerHTML = `<div class="struct-empty" style="margin-left:0;">— every merged item has all fields filled in —</div>`; return; }
+    if(!rows.length){ el.innerHTML = `<div class="struct-empty" style="margin-left:0;">— every merged item has everything you're checking for —</div>`; return; }
     rows.sort((a,b)=> b.missing.length - a.missing.length);
     el.innerHTML = rows.map(({it, missing, noQuestions})=>`
       <div class="q-existing-row"${noQuestions?' style="border-color:var(--danger);"':''}>
@@ -2507,7 +2556,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   const DEFAULT_TEMPLATE = {
     before: `/* ============================================================================
    game-data.js — all game CONTENT for Runner Game (cancer-runner-group.html)
-   and the Contributor tool (developer-tool.html) live in this one file.
+   and the Contributor tool (contributor.html) live in this one file.
 
    Nothing in here is executable game logic — it's just numbers, labels and
    study-guide content. The game and the contributor tool both load this file
@@ -2517,7 +2566,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
 
    HOW TO ADD CONTENT
    -------------------
-   • Easiest: open developer-tool.html, fill in the form, it writes the object
+   • Easiest: open contributor.html, fill in the form, it writes the object
      literal for you in the exact shape below — paste it in.
    • By hand: follow the shape of an existing entry and keep the same keys.
 
@@ -2550,27 +2599,27 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
    ("MEDS3002 · L14 · Cancer Hallmarks") is generated automatically — see
    courseDisplayString() in cancer-runner-group.html.
    ====================================================================== */
-  `,
+            `,
     betweenCoursesTopics: `
 
 /* ======================================================================
    TOPICS — the fixed taxonomy every question/item is filed under.
    ====================================================================== */
-  `,
+            `,
     betweenTopicsThemes: `
 
 /* ======================================================================
    GAME_CONFIG — every tunable number lives here in one place.
    ====================================================================== */
   const GAME_CONFIG = {
-    baseSpeed: 700,            // px/s at Stage I
+    baseSpeed: 750,            // px/s at Stage I
     speedRampPerStage: 20,     // added per stage index (0-based) — one-time bump on stage change
     speedRampPerSecond: 10,    // added continuously for every second survived — this is what makes it feel gradual
-    maxSpeed: 900,             // speed never exceeds this
+    maxSpeed: 1000,             // speed never exceeds this
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
-    obstacleSpawnBaseMs: 900,  // topic-block spawn interval = base + random(0..rand)
+    obstacleSpawnBaseMs: 650,  // topic-block spawn interval = base + random(0..rand)
     obstacleSpawnRandMs: 300,
     glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
     glucoseSpawnRandMs: 300,
@@ -2583,6 +2632,8 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     scoreIncorrectWeight: 35,
     scoreLifeWeight: 1,
     stageWeight: 300,          // added per stage reached (stageIndex is 0-based, so Stage I contributes 0)
+    streakBonusEvery: 3,       // award a bonus every Nth correct answer IN A ROW (resets to 0 on any wrong answer)
+    streakBonusAmount: 10,     // life gained when a streak bonus triggers
   };
 
 /* ======================================================================
@@ -2605,7 +2656,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
    its item's (e.g. a question spanning several classes at once) — most
    questions just inherit the item's.
    ====================================================================== */
-  `,
+            `,
     afterThemes: `
 
 /* ======================================================================
@@ -2886,6 +2937,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   });
 
   function renderAll(){ renderItem(); renderQuestion(); renderCourse(); renderHashtagStructureList(); }
+  renderIncompleteFilterChecks();
   renderAll();
 </script>
 </body>
