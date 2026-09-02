@@ -235,19 +235,21 @@
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
-    obstacleSpawnBaseMs: 450,  // topic-block spawn interval = base + random(0..rand)
-    obstacleSpawnRandMs: 100,
+    obstacleSpawnBaseMs: 250,  // topic-block spawn interval = base + random(0..rand)
+    obstacleSpawnRandMs: 450,
     glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
     glucoseSpawnRandMs: 300,
     initialObstacleDelayMs: 1200, // delay before the very first topic block spawns
     initialGlucoseDelayMs: 500,   // delay before the very first life pickup spawns
     bombDamage: 40,               // life lost when a bomb is hit (instant, no question)
-    bombSpawnBaseMs: 1000,        // bomb spawn interval — base + random(0..rand)
-    bombSpawnRandMs: 1000,
+    bombSpawnBaseMs: 500,        // bomb spawn interval — base + random(0..rand)
+    bombSpawnRandMs: 1300,
     scoreCorrectWeight: 50,    // Group Race ranking score = correct*this - incorrect*this + life*this + stageIndex*stageWeight
     scoreIncorrectWeight: 35,
     scoreLifeWeight: 1,
     stageWeight: 300,          // added per stage reached (stageIndex is 0-based, so Stage I contributes 0)
+    streakBonusEvery: 3,       // award a bonus every Nth correct answer IN A ROW (resets to 0 on any wrong answer)
+    streakBonusAmount: 10,     // life gained when a streak bonus triggers
   };
 
 /* ======================================================================
@@ -1666,7 +1668,7 @@
     cancer: [
       /* "scenario" is patient-facing narrative — this is also where a real
          case study can be dropped in later (per stage). */
-      { n:1, roman:'I', requirements:{ genetics:5, immunology:5 },
+      { n:1, roman:'I', requirements:{ genetics:3, immunology:3, pharmacology:3, oncology:3 },
         scenario:"Patient presents with fatigue and unexplained bruising. Bloodwork shows an abnormal white cell count — the care team orders genetic testing to find out exactly what's driving it." },
       { n:2, roman:'II', requirements:{ genetics:5, immunology:10 },
         scenario:"The genetic picture is in. Now the patient's own immune system is in the fight — how well it can recognise and respond to the disease will shape what comes next." },
