@@ -260,6 +260,14 @@
         <div class="checks" id="practiceTopicChecks" style="margin-bottom:16px;"></div>
         <div class="p-sub">Course</div>
         <select id="practiceCourseSelect" style="max-width:420px;margin-bottom:18px;"></select>
+        <div class="p-sub">Questions this session</div>
+        <select id="practiceLimitSelect" style="max-width:420px;margin-bottom:18px;">
+          <option value="10">10 questions</option>
+          <option value="20" selected>20 questions</option>
+          <option value="30">30 questions</option>
+          <option value="all">Everything that matches</option>
+        </select>
+        <p id="practiceLimitNote" class="desc" style="margin:-10px 0 14px;font-size:11.5px;"></p>
         <div class="btn-row">
           <button class="secondary" id="practiceBackBtn">← Back</button>
           <button class="secondary" id="practiceBrowseBtn">📚 Browse guide</button>
@@ -387,6 +395,9 @@
           <span class="sr-link" id="mcqEndPracticeBtn">End practice</span>
         </div>
         <div class="mcq-cat" id="mcqCat" style="color:var(--hud-dim);">TOPIC</div>
+        <div id="mcqTimerWrap" style="height:4px;background:var(--panel-line);border-radius:2px;margin:6px 0 10px;overflow:hidden;">
+          <div id="mcqTimerBar" style="height:100%;width:100%;background:var(--membrane);transition:width 1s linear, background 0.3s;"></div>
+        </div>
         <p class="mcq-prompt" id="mcqPrompt">—</p>
         <div id="mcqOptions"></div>
         <div id="mcqFeedback" style="display:none;">
@@ -776,6 +787,8 @@
   const practiceThemeGrid = document.getElementById('practiceThemeGrid');
   const practiceTopicChecks = document.getElementById('practiceTopicChecks');
   const practiceCourseSelect = document.getElementById('practiceCourseSelect');
+  const practiceLimitSelect = document.getElementById('practiceLimitSelect');
+  const practiceLimitNote = document.getElementById('practiceLimitNote');
   const practiceBackBtn = document.getElementById('practiceBackBtn');
   const practiceBrowseBtn = document.getElementById('practiceBrowseBtn');
   const practiceStartBtn = document.getElementById('practiceStartBtn');
@@ -817,6 +830,7 @@
 
   const mcqModal = document.getElementById('mcqModal');
   const mcqCat = document.getElementById('mcqCat');
+  const mcqTimerBar = document.getElementById('mcqTimerBar');
   const mcqPrompt = document.getElementById('mcqPrompt');
   const mcqOptions = document.getElementById('mcqOptions');
   const mcqFeedback = document.getElementById('mcqFeedback');
@@ -914,6 +928,8 @@
   let practiceCorrect = 0, practiceAnswered = 0;
   let practiceTheme = null;
   let pendingQuestion = null;
+  let mcqTimerInterval = null;
+  const MCQ_TIME_LIMIT = 30; // seconds -- run out and it counts as a wrong answer, same as picking a real option incorrectly
   let mcqAnswered = false;
   let guideJumpTopic = null;
 
@@ -1116,7 +1132,23 @@
     });
     const sorted = [...courses].sort();
     practiceCourseSelect.innerHTML = `<option value="">All courses</option>` + sorted.map(c=>`<option value="${c}">${c}</option>`).join('');
+    updatePracticeLimitNote();
   }
+  // Practice mode is meant for focused revision, not "play the entire
+  // question bank end to end" -- so a session is capped, and if there are
+  // more matches than the cap, a random subset is drawn each time rather
+  // than just quietly cutting off the tail (which would mean the same
+  // first N questions every session, forever).
+  function updatePracticeLimitNote(){
+    const total = matchingPracticeQuestions().length;
+    const limit = practiceLimitSelect.value;
+    const playing = limit==='all' ? total : Math.min(total, parseInt(limit,10));
+    practiceLimitNote.textContent = total
+      ? `${total} question${total===1?'':'s'} match these filters — ${playing===total?'all of them':`a random ${playing}`} will play this session.`
+      : 'No questions match these filters yet.';
+  }
+  practiceLimitSelect.addEventListener('change', updatePracticeLimitNote);
+  practiceCourseSelect.addEventListener('change', updatePracticeLimitNote);
   function matchingPracticeQuestions(){
     const topics = selectedPracticeTopics();
     const course = practiceCourseSelect.value;
@@ -1140,7 +1172,9 @@
   practiceStartBtn.addEventListener('click', ()=>{
     const matches = matchingPracticeQuestions();
     if(!matches.length){ alert('No questions match those filters yet — try a different topic or course.'); return; }
-    practiceQueue = shuffle(matches);
+    const shuffled = shuffle(matches);
+    const limit = practiceLimitSelect.value;
+    practiceQueue = limit==='all' ? shuffled : shuffled.slice(0, parseInt(limit,10));
     practiceCorrect = 0; practiceAnswered = 0;
     activeQuestionTheme = practiceSelectedTheme;
     quizMode = 'practice';
@@ -1166,6 +1200,7 @@
     presentQuestion(next.q, next.topic);
   }
   mcqEndPracticeBtn.addEventListener('click', ()=>{
+    clearMcqTimer();
     practiceQueue = [];
     mcqModal.classList.remove('active');
     quizMode = 'runner';
@@ -1403,6 +1438,32 @@
   // quizMode: 'runner' (glucose/stage-driven, from canvas collisions) or
   // 'practice' (untimed practice quiz, driven by the practice queue).
   let pendingTopic = null;
+  // A CSS transition handles the visual countdown (width/color animating
+  // smoothly over each second) -- the actual JS interval just ticks the
+  // remaining-seconds count and decides when time's up, it never touches
+  // the bar's width directly except to kick off each new second's step.
+  function clearMcqTimer(){
+    if(mcqTimerInterval){ clearInterval(mcqTimerInterval); mcqTimerInterval = null; }
+  }
+  function startMcqTimer(){
+    clearMcqTimer();
+    let secondsLeft = MCQ_TIME_LIMIT;
+    mcqTimerBar.style.transition = 'none';
+    mcqTimerBar.style.width = '100%';
+    mcqTimerBar.style.background = 'var(--membrane)';
+    void mcqTimerBar.offsetWidth; // force the browser to apply the reset above before the next transition starts, or it'd animate FROM the previous question's leftover width instead of a clean 100%
+    mcqTimerBar.style.transition = 'width 1s linear, background 0.3s';
+    mcqTimerInterval = setInterval(()=>{
+      secondsLeft--;
+      const pct = Math.max(0, (secondsLeft/MCQ_TIME_LIMIT)*100);
+      mcqTimerBar.style.width = pct + '%';
+      if(secondsLeft <= 10) mcqTimerBar.style.background = 'var(--danger)';
+      if(secondsLeft <= 0){
+        clearMcqTimer();
+        if(!mcqAnswered) answerMCQ(-1, true);
+      }
+    }, 1000);
+  }
   function presentQuestion(q, topic){
     pendingQuestion = q;
     pendingTopic = topic;
@@ -1421,6 +1482,7 @@
     });
     mcqFeedback.style.display = 'none';
     mcqModal.classList.add('active');
+    startMcqTimer();
   }
   function openMCQ(entity){
     pendingEntity = entity;
@@ -1442,9 +1504,10 @@
     presentQuestion(q, entity.topic);
     mcqPracticeBar.style.display = 'none';
   }
-  function answerMCQ(chosenIndex){
+  function answerMCQ(chosenIndex, isTimeout){
     if(mcqAnswered) return;
     mcqAnswered = true;
+    clearMcqTimer();
     const q = pendingQuestion;
     const correct = chosenIndex === q.correctIndex;
     const btns = mcqOptions.querySelectorAll('.mcq-option');
@@ -1461,7 +1524,7 @@
       SoundFX.correct();
     } else {
       if(quizMode==='runner'){ glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI(); }
-      mcqVerdict.textContent = 'Not quite';
+      mcqVerdict.textContent = isTimeout ? "Time's up" : 'Not quite';
       mcqVerdict.className = 'mcq-verdict verdict-bad';
       SoundFX.wrong();
     }
@@ -2367,7 +2430,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-08-30-visible-version-tag'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-09-02-practice-limit-and-timer'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
