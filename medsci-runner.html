@@ -37,6 +37,8 @@
 
   #hud{ position:absolute;top:0;left:0;right:0; display:flex;justify-content:space-between;align-items:flex-start;
     padding:14px 16px; pointer-events:none; z-index:22; }
+  #hudLeft{ display:flex; gap:8px; align-items:flex-start; }
+  #hudRightCol{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
   .hud-block{ background:rgba(13,3,8,.55); backdrop-filter:blur(4px); border:1px solid rgba(255,93,143,.25);
     border-radius:10px; padding:8px 12px; pointer-events:auto; }
   .hud-label{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--hud-dim); margin-bottom:2px; }
@@ -211,27 +213,36 @@
     <canvas id="game" width="960" height="480"></canvas>
 
     <div id="hud">
-      <div class="hud-block">
-        <div class="hud-label" id="lifeLabel">Glucose</div>
-        <div class="hud-value" id="glucoseVal">50</div>
-        <div class="hud-stage-line" id="stageLine"></div>
-        <div class="topic-chips" id="topicChips"></div>
+      <div id="hudLeft">
+        <div class="hud-block">
+          <div class="hud-label" id="lifeLabel">Glucose</div>
+          <div class="hud-value" id="glucoseVal">50</div>
+          <div class="hud-stage-line" id="stageLine"></div>
+          <div class="topic-chips" id="topicChips"></div>
+        </div>
+        <div class="hud-block" id="scoreHudBlock" style="display:none;">
+          <div class="hud-label">Score</div>
+          <div class="hud-value" id="scoreVal">0</div>
+        </div>
       </div>
-      <div class="hud-block" id="scoreHudBlock" style="display:none;">
-        <div class="hud-label">Score</div>
-        <div class="hud-value" id="scoreVal">0</div>
-      </div>
-      <div class="hud-block" id="mpOpponentPanel" style="display:none;max-width:230px;">
-        <div class="hud-label">Racers</div>
-        <div id="mpLeaderboardPanel"></div>
-      </div>
-      <div id="hudRight">
-        <button class="icon-btn" id="soundToggleBtn" title="Mute sound effects">🔊</button>
-        <button class="icon-btn" id="pauseBtn" title="Pause (P)">⏸</button>
-        <button class="icon-btn" id="guideBtn" title="Study guide">📚</button>
+      <div id="hudRightCol">
+        <div id="hudRight">
+          <button class="icon-btn" id="soundToggleBtn" title="Mute sound effects">🔊</button>
+          <button class="icon-btn" id="pauseBtn" title="Pause (P)">⏸</button>
+          <button class="icon-btn" id="guideBtn" title="Study guide">📚</button>
+        </div>
+        <div class="hud-block" id="mpOpponentPanel" style="display:none;max-width:230px;">
+          <div class="hud-label">Racers</div>
+          <div id="mpLeaderboardPanel"></div>
+        </div>
       </div>
     </div>
     <div id="mpEliminationToast"></div>
+    <div id="resumeIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:23;
+      background:rgba(13,3,8,.88);backdrop-filter:blur(4px);border:1px solid var(--membrane);border-radius:12px;
+      padding:10px 20px;font-size:14px;color:var(--hud-ink);text-align:center;pointer-events:none;white-space:nowrap;">
+      <span id="resumeIndicatorText">▶ Resuming…</span>
+    </div>
     <div id="stallWarning" style="display:none;position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;
       background:rgba(13,3,8,.85);backdrop-filter:blur(4px);border:1px solid var(--danger);border-radius:10px;
       padding:8px 16px;font-size:12px;color:var(--hud-ink);text-align:center;pointer-events:none;white-space:nowrap;"></div>
@@ -1652,16 +1663,26 @@
       showStageScenario(stageIndex, false);
       return;
     }
-    // Brief freeze before handing control back -- without it, whatever
-    // piled up on screen while the question was open resumes moving the
-    // instant Continue is clicked, which can mean an unavoidable hit.
+    // Brief, visible pause before handing control back -- without it,
+    // whatever piled up on screen while the question was open resumes
+    // moving the instant Continue is clicked (felt like the game had
+    // hung), which can also mean an unavoidable hit.
     screenState = 'resuming';
-    setTimeout(()=>{
-      if(screenState !== 'resuming') return; // player paused/quit/etc during the buffer
-      screenState = 'running';
-      lastT = performance.now();
-      requestAnimationFrame(loop);
-    }, GAME_CONFIG.postAnswerPauseMs);
+    const resumeAt = performance.now() + GAME_CONFIG.postAnswerPauseMs;
+    resumeIndicator.style.display = 'block';
+    (function tickResume(){
+      if(screenState !== 'resuming'){ resumeIndicator.style.display = 'none'; return; } // interrupted (paused/quit/etc)
+      const remain = resumeAt - performance.now();
+      if(remain <= 0){
+        resumeIndicator.style.display = 'none';
+        screenState = 'running';
+        lastT = performance.now();
+        requestAnimationFrame(loop);
+        return;
+      }
+      resumeIndicatorText.textContent = `▶ Resuming in ${(remain/1000).toFixed(1)}s`;
+      requestAnimationFrame(tickResume);
+    })();
   });
 
   // ---------- update / draw ----------
@@ -2217,6 +2238,8 @@
   const mpLeaderboardPanel = document.getElementById('mpLeaderboardPanel');
   const mpRosterList = document.getElementById('mpRosterList');
   const mpEliminationToast = document.getElementById('mpEliminationToast');
+  const resumeIndicator = document.getElementById('resumeIndicator');
+  const resumeIndicatorText = document.getElementById('resumeIndicatorText');
   const stallWarning = document.getElementById('stallWarning');
 
   let mp = {
@@ -2437,6 +2460,7 @@
     if(!others.every(pid=>roster[pid] && roster[pid].done)) return; // someone's still racing
     mcqModal.classList.remove('active');
     scenarioOverlay.classList.remove('active');
+    resumeIndicator.style.display = 'none';
     clearMcqTimer();
     screenState = 'over';
     fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
@@ -2574,7 +2598,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-09-02-hud-during-mcq-resume-pause-obstacle-icon-autowin'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-09-02-visible-resume-timer-leaderboard-corner'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;

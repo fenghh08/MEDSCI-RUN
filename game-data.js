@@ -17,20 +17,29 @@
    SHAPE OVERVIEW
    ---------------
    COURSES        — real university courses (e.g. MEDS3002), each broken into
-                     Classes (individual lectures, e.g. "L14").
-   TOPICS         — the fixed topic taxonomy (genetics, immunology, ...).
-   THEMES         — Theme (e.g. "cancer") → Topic → study-guide Item. Each
-                     item can point at a COURSES entry via `course` + `class`,
-                     and carries its own `questions` array — the MCQs players
-                     get asked about that item. A question only needs its own
-                     `course`/`class` (or, rarely, a literal `relatedCourse`
-                     string) if it genuinely differs from its item's — most
-                     just inherit the item's.
-   STAGES         — Theme → ordered list of Runner-mode stages.
-   RUNNABLE_THEMES— which theme ids have a STAGES entry (playable in Runner
+                     Classes/lectures (individual lectures, e.g. "L14"). This
+                     is ALSO the top level of THEMES below now -- a course
+                     code like 'MEDS3002' is both a playable top-level group
+                     AND (via `course`/`class` on an item/question) a lecture
+                     citation, which is why an item's own course usually
+                     matches its top-level THEMES key but doesn't have to
+                     (e.g. a MEDS3002 item citing a MEDS3001 lecture too).
+   THEMES         — Course (e.g. "MEDS3002") → Topic → study-guide Item.
+                     Topics are specific to their course now -- each one
+                     carries its own `label`/`icon`/`color` inline instead of
+                     pointing at a shared taxonomy. Each item can point at a
+                     COURSES entry via `course` + `class`, and carries its
+                     own `questions` array — the MCQs players get asked about
+                     that item (each with its own `difficulty`, one of
+                     'easy'/'medium'/'hard', optional). A question only needs
+                     its own `course`/`class` (or, rarely, a literal
+                     `relatedCourse` string) if it genuinely differs from its
+                     item's — most just inherit the item's.
+   STAGES         — Course → ordered list of Runner-mode stages.
+   RUNNABLE_THEMES— which course ids have a STAGES entry (playable in Runner
                      mode vs. Study & Practice-only).
    GAME_CONFIG    — every tunable gameplay number.
-   LIFE_CONFIG    — per-theme label/icon for the "life" resource.
+   LIFE_CONFIG    — per-course label/icon for the "life" resource.
    COMPLETE_SCENARIO — text shown after the last stage.
    ============================================================================ */
 (function(){
@@ -179,50 +188,14 @@
   };
 
 /* ======================================================================
-   TOPICS — the fixed taxonomy every question/item is filed under.
+   TOPICS is no longer authored here -- each course's topics now carry
+   their own label/icon/color inline (see THEMES below), since topics are
+   specific to the course they belong to rather than a shared taxonomy.
+   medsci-runner.html and developer-tool.html each build a flat TOPICS
+   lookup at load time by walking every course's topics, purely so the
+   rest of those files (which look things up by topic id) didn't need to
+   change -- that derived index is NOT authored here.
    ====================================================================== */
-            const TOPICS = {
-    'genetics': {
-      'label': 'Genetics',
-      'icon': '🧬',
-      'color': '#c58bff',
-    },
-    'immunology': {
-      'label': 'Immunology',
-      'icon': '🛡️',
-      'color': '#3ec6e0',
-    },
-    'pharmacology': {
-      'label': 'Pharmacology',
-      'icon': '💊',
-      'color': '#ff4d6d',
-    },
-    'oncology': {
-      'label': 'Oncology',
-      'icon': '🎗️',
-      'color': '#ffab4d',
-    },
-    'metabolism': {
-      'label': 'Metabolism',
-      'icon': '🔥',
-      'color': '#ffd23f',
-    },
-    'molecularBiology': {
-      'label': 'Molecular Biology',
-      'icon': '🔬',
-      'color': '#7cff6b',
-    },
-    'cellBiology': {
-      'label': 'Cell Biology',
-      'icon': '🧫',
-      'color': '#2dd4bf',
-    },
-    'pharmacologyHistory': {
-      'label': 'Pharmacology History',
-      'icon': '📜',
-      'color': '#f472b6',
-    },
-  };
 
 /* ======================================================================
    GAME_CONFIG — every tunable number lives here in one place.
@@ -235,7 +208,7 @@
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
-    postAnswerPauseMs: 1200,   // brief freeze after clicking Continue, before the run resumes -- gives a beat to
+    postAnswerPauseMs: 2000,   // brief freeze after clicking Continue, before the run resumes -- gives a beat to
                                // get oriented instead of getting dropped straight back next to whatever piled up
     obstacleSpawnBaseMs: 250,  // topic-block spawn interval = base + random(0..rand)
     obstacleSpawnRandMs: 450,
@@ -244,6 +217,8 @@
     initialObstacleDelayMs: 1200, // delay before the very first topic block spawns
     initialGlucoseDelayMs: 500,   // delay before the very first life pickup spawns
     bombDamage: 40,               // life lost when a bomb is hit (instant, no question)
+    bombIcon: '💣',                // swap for 'icons/bomb.png' (or any path/URL -- see the ICONS comment
+                                   // in medsci-runner.html) to use your own image instead of the emoji
     bombSpawnBaseMs: 500,        // bomb spawn interval — base + random(0..rand)
     bombSpawnRandMs: 1300,
     scoreCorrectWeight: 50,    // Group Race ranking score = correct*this - incorrect*this + life*this + stageIndex*stageWeight
@@ -262,8 +237,8 @@
    penalties, the bomb warning) reads from this automatically.
    ====================================================================== */
   const LIFE_CONFIG = {
-    cancer:       { label:'Glucose', icon:'🩸' },
-    biochemistry: { label:'ATP',     icon:'⚡' },
+    'MEDS3002':   { label:'Glucose', icon:'🌕' },
+    'MEDS2003': { label:'ATP',     icon:'🌕' },
   };
 
 /* ======================================================================
@@ -277,12 +252,15 @@
    questions just inherit the item's.
    ====================================================================== */
             const THEMES = {
-    'cancer': {
-      'label': 'Cancer',
+    'MEDS3002': {
+      'label': 'MEDS3002',
       'icon': '🎗️',
       'blurb': 'Genetics, immunology, pharmacology and oncology across cancer types — MEDS3002.',
       'topics': {
         'genetics': {
+          'label': 'Genetics',
+          'icon': '🧬',
+          'color': '#c58bff',
           'items': {
             'bcrabl': {
               'label': 'BCR-ABL fusion / Philadelphia chromosome',
@@ -387,6 +365,9 @@
           },
         },
         'immunology': {
+          'label': 'Immunology',
+          'icon': '🛡️',
+          'color': '#3ec6e0',
           'items': {
             'pdl1checkpoint': {
               'label': 'PD-1 / PD-L1 checkpoint',
@@ -658,6 +639,9 @@
           },
         },
         'pharmacology': {
+          'label': 'Pharmacology',
+          'icon': '💊',
+          'color': '#ff4d6d',
           'items': {
             'imatinib': {
               'label': 'Imatinib',
@@ -931,6 +915,9 @@
           },
         },
         'oncology': {
+          'label': 'Oncology',
+          'icon': '🎗️',
+          'color': '#ffab4d',
           'items': {
             'blastcrisis': {
               'label': 'Blast crisis',
@@ -1142,6 +1129,9 @@
           },
         },
         'cellBiology': {
+          'label': 'Cell Biology',
+          'icon': '🧫',
+          'color': '#2dd4bf',
           'items': {
             'cellCycleCheckpoints': {
               'label': 'Cell cycle checkpoints & CDK regulation',
@@ -1302,6 +1292,9 @@
           },
         },
         'pharmacologyHistory': {
+          'label': 'Pharmacology History',
+          'icon': '📜',
+          'color': '#f472b6',
           'items': {
             'historyOfPharmacology': {
               'label': 'History of pharmacology & pharmacognosy',
@@ -1583,12 +1576,15 @@
         },
       },
     },
-    'biochemistry': {
-      'label': 'Biochemistry',
+    'MEDS2003': {
+      'label': 'MEDS2003',
       'icon': '🧪',
       'blurb': 'Metabolism and molecular biology — MEDS2003. Starter content only; expand freely.',
       'topics': {
         'metabolism': {
+          'label': 'Metabolism',
+          'icon': '🔥',
+          'color': '#ffd23f',
           'items': {
             'warburgeffect': {
               'label': 'The Warburg effect',
@@ -1635,6 +1631,9 @@
           },
         },
         'molecularBiology': {
+          'label': 'Molecular Biology',
+          'icon': '🔬',
+          'color': '#7cff6b',
           'items': {
             'transcriptionbasics': {
               'label': 'Transcription (overview)',
@@ -1669,7 +1668,7 @@
    stage begins.
    ====================================================================== */
   const STAGES = {
-    cancer: [
+    'MEDS3002': [
       /* "scenario" is patient-facing narrative — this is also where a real
          case study can be dropped in later (per stage). */
       { n:1, roman:'I', requirements:{ genetics:3, immunology:3, pharmacology:3, oncology:3 },
@@ -1684,7 +1683,7 @@
     // Deliberately short right now — biochemistry only has a handful of
     // seed questions so far. Expand requirements as you add more content
     // (see the contributor tool or dev notes).
-    biochemistry: [
+    'MEDS2003': [
       { n:1, roman:'I', requirements:{ metabolism:2 },
         scenario:"You're tracing how a cell fuels itself — starting with how it handles glucose and energy production." },
       { n:2, roman:'II', requirements:{ metabolism:1, molecularBiology:1 },
@@ -1693,11 +1692,11 @@
   };
   const COMPLETE_SCENARIO = "You've worked through the full case — review your answers below, or start again to reinforce what you've learned. (Real case studies coming soon.)";
 
-  const RUNNABLE_THEMES = ['cancer', 'biochemistry']; // themes with a matching STAGES config, playable in Runner mode
+  const RUNNABLE_THEMES = ['MEDS3002', 'MEDS2003']; // course ids with a matching STAGES config, playable in Runner mode
 
 
   window.RUNNER_DATA = {
-    COURSES, TOPICS, GAME_CONFIG, LIFE_CONFIG, THEMES,
+    COURSES, GAME_CONFIG, LIFE_CONFIG, THEMES,
     STAGES, COMPLETE_SCENARIO, RUNNABLE_THEMES,
   };
 
