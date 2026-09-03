@@ -16,7 +16,13 @@
   *{box-sizing:border-box;}
   html,body{ margin:0;height:100%; background:radial-gradient(ellipse at 50% 0%, var(--bg-1), var(--bg-0) 70%);
     color:var(--hud-ink); font-family:var(--mono); display:flex;align-items:center;justify-content:center;
-    overflow:hidden; -webkit-tap-highlight-color:transparent; }
+    overflow:hidden; -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none; user-select:none; }
+  /* Question/answer text (and everything else) is unselectable by default so it
+     can't just be block-selected and pasted into a search box or another AI --
+     re-enable selection only on the handful of elements people actually need
+     to copy or type into (name/code inputs, the room-code readout). */
+  input, textarea, #mpRoomCodeDisplay{ -webkit-user-select:text; user-select:text; }
   #wrap{ width:97vw; max-width:1700px; height:96vh; padding:12px; display:flex; flex-direction:column; }
   h1{ font-family:var(--display); font-weight:400; font-style:italic; font-size:24px; margin:0 0 1px 2px; flex-shrink:0; }
   .subtitle{ margin:0 0 8px 3px; color:var(--hud-dim); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; flex-shrink:0; }
@@ -207,6 +213,10 @@
         <div class="hud-stage-line" id="stageLine"></div>
         <div class="topic-chips" id="topicChips"></div>
       </div>
+      <div class="hud-block" id="scoreHudBlock" style="display:none;">
+        <div class="hud-label">Score</div>
+        <div class="hud-value" id="scoreVal">0</div>
+      </div>
       <div class="hud-block" id="mpOpponentPanel" style="display:none;max-width:230px;">
         <div class="hud-label">Racers</div>
         <div id="mpLeaderboardPanel"></div>
@@ -389,6 +399,10 @@
         <div class="scenario-text" id="scenarioText"></div>
         <div class="p-sub" style="margin-top:0;">To clear this stage</div>
         <div class="req-list" id="scenarioReqs"></div>
+        <div id="scenarioScoreLegend" style="display:none;margin-top:14px;">
+          <div class="p-sub" style="margin-top:0;">Scoring</div>
+          <div class="req-list" id="scenarioScoreChips"></div>
+        </div>
         <button class="primary" id="scenarioContinueBtn">Continue</button>
       </div>
     </div>
@@ -772,6 +786,8 @@
   const glucoseVal = document.getElementById('glucoseVal');
   const stageLine = document.getElementById('stageLine');
   const topicChips = document.getElementById('topicChips');
+  const scoreHudBlock = document.getElementById('scoreHudBlock');
+  const scoreVal = document.getElementById('scoreVal');
   const pauseBtn = document.getElementById('pauseBtn');
   const guideBtn = document.getElementById('guideBtn');
 
@@ -832,6 +848,8 @@
   const scenarioStageLabel = document.getElementById('scenarioStageLabel');
   const scenarioText = document.getElementById('scenarioText');
   const scenarioReqs = document.getElementById('scenarioReqs');
+  const scenarioScoreLegend = document.getElementById('scenarioScoreLegend');
+  const scenarioScoreChips = document.getElementById('scenarioScoreChips');
   const scenarioContinueBtn = document.getElementById('scenarioContinueBtn');
 
   const mcqModal = document.getElementById('mcqModal');
@@ -904,6 +922,7 @@
   let streak = 0; // consecutive correct answers -- resets to 0 on any wrong answer or timeout, in BOTH Runner and Practice
   let practiceTimed = false; // Runner and Group Race are ALWAYS timed; Practice is opt-in, set from the checkbox each time a session starts
   let myIncorrectCount = 0;
+  let myBonusScore = 0; // flat score points banked from streak bonuses (kept separate from the correct/incorrect/life/stage weights)
   let sessionLog = [];
   let entities = [], floaters = [];
   let player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
@@ -1231,6 +1250,7 @@
     myCorrectCount = 0;
     myIncorrectCount = 0;
     streak = 0;
+    myBonusScore = 0;
     sessionLog = [];
     entities = []; floaters = [];
     player = { lane:1, y:laneY(1), targetLane:1, wob:0 };
@@ -1243,10 +1263,16 @@
     Object.keys(questionQueues).forEach(k=>delete questionQueues[k]);
     updateGlucoseUI();
   }
+  function updateScoreHUD(){
+    if(mp.active || quizMode!=='runner'){ scoreHudBlock.style.display = 'none'; return; }
+    scoreHudBlock.style.display = 'block';
+    scoreVal.textContent = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex, bonusScore:myBonusScore });
+  }
   function updateGlucoseUI(){
     lifeLabel.textContent = lifeCfg().label;
     glucoseVal.textContent = Math.max(0, Math.round(glucose));
     glucoseVal.style.color = glucose < 20 ? 'var(--danger)' : 'var(--hud-ink)';
+    updateScoreHUD();
     if(mp.active) mpSyncMyState();
   }
   function activeTopicsForStage(){
@@ -1262,6 +1288,7 @@
       const done = cur >= st.requirements[t];
       return `<span class="topic-chip" style="color:${meta.color};border-color:${meta.color}77;background:${meta.color}${done?'33':'11'}">${iconHTML(meta.icon,13)} ${cur}/${st.requirements[t]}</span>`;
     }).join('');
+    updateScoreHUD();
     if(mp.active) mpSyncMyState();
   }
   function startRun(){
@@ -1282,6 +1309,18 @@
       const meta = TOPICS[t];
       return `<span class="req-chip" style="color:${meta.color};border-color:${meta.color}77">${iconHTML(meta.icon,14)} ${meta.label} × ${st.requirements[t]}</span>`;
     }).join('');
+    // One-time, minimal scoring explainer -- shown only ahead of Stage I so
+    // it's seen once per run without cluttering every later stage screen.
+    if(isStart && idx===0 && !mp.active){
+      scenarioScoreChips.innerHTML = `
+        <span class="req-chip" style="color:var(--good);border-color:var(--good)77">✅ Correct +${GAME_CONFIG.scoreCorrectWeight}</span>
+        <span class="req-chip" style="color:var(--danger);border-color:var(--danger)77">❌ Wrong −${GAME_CONFIG.scoreIncorrectWeight}</span>
+        <span class="req-chip" style="color:#ffd54d;border-color:#ffd54d77">🔥 Streak bonus +${GAME_CONFIG.streakBonusScoreAmount}</span>
+        <span class="req-chip" style="color:var(--membrane);border-color:var(--membrane)77">🏁 Stage clear +${GAME_CONFIG.stageWeight}</span>`;
+      scenarioScoreLegend.style.display = 'block';
+    } else {
+      scenarioScoreLegend.style.display = 'none';
+    }
     scenarioOverlay.classList.add('active');
     scenarioContinueBtn.onclick = ()=>{
       scenarioOverlay.classList.remove('active');
@@ -1324,16 +1363,17 @@
     screenState = 'over';
     mpSetOverButtons('solo');
     const life = lifeCfg().label;
+    const finalScore = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex, bonusScore:myBonusScore });
     if(outcome==='win'){
       overTitle.textContent = 'All stages complete';
-      overText.innerHTML = `You made it through all stages with <b>${Math.round(glucose)}</b> ${life} remaining. ${COMPLETE_SCENARIO}`;
+      overText.innerHTML = `You made it through all stages with <b>${Math.round(glucose)}</b> ${life} remaining · score <b>${finalScore}</b>. ${COMPLETE_SCENARIO}`;
       SoundFX.win();
     } else if(outcome==='ended'){
       overTitle.textContent = 'Run ended';
-      overText.innerHTML = `You ended the run on <b>Stage ${currentStages()[stageIndex].roman}</b> with <b>${Math.round(glucose)}</b> ${life} remaining.`;
+      overText.innerHTML = `You ended the run on <b>Stage ${currentStages()[stageIndex].roman}</b> with <b>${Math.round(glucose)}</b> ${life} remaining · score <b>${finalScore}</b>.`;
     } else {
       overTitle.textContent = `Out of ${life}`;
-      overText.innerHTML = `${life} ran out on <b>Stage ${currentStages()[stageIndex].roman}</b>. Review what you got wrong below and try again.`;
+      overText.innerHTML = `${life} ran out on <b>Stage ${currentStages()[stageIndex].roman}</b> · score <b>${finalScore}</b>. Review what you got wrong below and try again.`;
       SoundFX.lose();
     }
     showScreen('over');
@@ -1546,20 +1586,36 @@
       if(quizMode==='runner'){
         stageProgress[pendingTopic] = (stageProgress[pendingTopic]||0) + 1; myCorrectCount++;
         if(streak % GAME_CONFIG.streakBonusEvery === 0){
-          glucose += GAME_CONFIG.streakBonusAmount;
-          updateGlucoseUI();
-          popup(PLAYER_X, player.y-40, `🔥 ${streak} streak +${GAME_CONFIG.streakBonusAmount}`, '#ffd54d');
+          // Score bonus always banks, independent of the life bonus below --
+          // GAME_CONFIG.streakBonusAppliesToLife just controls whether the
+          // streak ALSO tops up life; flip it to false to keep streaks purely
+          // score-driven while leaving this life-award code intact.
+          myBonusScore += GAME_CONFIG.streakBonusScoreAmount;
+          if(GAME_CONFIG.streakBonusAppliesToLife){
+            glucose += GAME_CONFIG.streakBonusAmount;
+            updateGlucoseUI();
+          }
+          popup(PLAYER_X, player.y-40, `🔥 ${streak} streak +${GAME_CONFIG.streakBonusScoreAmount} pts`, '#ffd54d');
           bonusFired = true;
         }
       }
       else practiceCorrect++;
-      mcqVerdict.textContent = bonusFired ? `Correct — 🔥 ${streak} in a row! +${GAME_CONFIG.streakBonusAmount} ${lifeCfg().label}` : 'Correct';
+      if(bonusFired){
+        const lifePart = GAME_CONFIG.streakBonusAppliesToLife ? ` +${GAME_CONFIG.streakBonusAmount} ${lifeCfg().label} ·` : '';
+        mcqVerdict.textContent = `Correct — 🔥 ${streak} in a row!${lifePart} +${GAME_CONFIG.streakBonusScoreAmount} pts`;
+      } else {
+        mcqVerdict.textContent = 'Correct';
+      }
       mcqVerdict.className = 'mcq-verdict verdict-good';
       SoundFX.correct();
     } else {
       streak = 0;
-      if(quizMode==='runner'){ glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI(); }
-      mcqVerdict.textContent = isTimeout ? "Time's up" : 'Not quite';
+      if(quizMode==='runner'){
+        glucose -= GAME_CONFIG.wrongAnswerPenalty; myIncorrectCount++; updateGlucoseUI();
+        mcqVerdict.textContent = `${isTimeout ? "Time's up" : 'Not quite'} — -${GAME_CONFIG.wrongAnswerPenalty} ${lifeCfg().label}`;
+      } else {
+        mcqVerdict.textContent = isTimeout ? "Time's up" : 'Not quite';
+      }
       mcqVerdict.className = 'mcq-verdict verdict-bad';
       SoundFX.wrong();
     }
@@ -2225,7 +2281,7 @@
         status:'waiting', hostId: mp.playerId, hostName: name, createdAt: Date.now(), winner: null, theme: mp.theme,
       });
       await set(ref(fbdb, `rooms/${code}/players/${mp.playerId}`), {
-        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, done:false, finishedWin:false,
+        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, bonusScore:0, done:false, finishedWin:false,
       });
       mpSetupView.style.display = 'none';
       mpWaitView.style.display = 'block';
@@ -2254,7 +2310,7 @@
       mp.myName = name; mp.playerId = randId(); mp.isHost = false; mp.roomCode = code; mp.finished = false;
       mp.theme = room.theme || 'cancer';
       await set(ref(fbdb, `rooms/${code}/players/${mp.playerId}`), {
-        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, done:false, finishedWin:false,
+        name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, bonusScore:0, done:false, finishedWin:false,
       });
       mpJoinEntryView.style.display = 'none';
       mpWaitView.style.display = 'block';
@@ -2334,7 +2390,7 @@
       : `<div class="roster-row">Just you so far…</div>`;
   }
   function mpScore(p){
-    return (p.correctCount||0)*GAME_CONFIG.scoreCorrectWeight - (p.incorrectCount||0)*GAME_CONFIG.scoreIncorrectWeight + (p.glucose||0)*GAME_CONFIG.scoreLifeWeight + (p.stageIndex||0)*GAME_CONFIG.stageWeight;
+    return (p.correctCount||0)*GAME_CONFIG.scoreCorrectWeight - (p.incorrectCount||0)*GAME_CONFIG.scoreIncorrectWeight + (p.glucose||0)*GAME_CONFIG.scoreLifeWeight + (p.stageIndex||0)*GAME_CONFIG.stageWeight + (p.bonusScore||0);
   }
   function mpRankedRoster(roster){
     return Object.entries(roster).map(([pid,p])=>({ pid, ...p, score:mpScore(p) })).sort((a,b)=>b.score-a.score);
@@ -2367,7 +2423,7 @@
     const allOthersDone = others.length>0 && others.every(([pid,p])=>p.done);
     mpSetOverButtons('waiting');
     overTitle.textContent = "You're done";
-    const myScore = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex });
+    const myScore = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex, bonusScore:myBonusScore });
     if(!allOthersDone){
       const stillRacing = others.filter(([pid,p])=>!p.done).map(([pid,p])=>p.name).join(', ') || 'others';
       overText.innerHTML = `Stage ${STAGES[currentCancerId][stageIndex].roman} · ${myCorrectCount}✓/${myIncorrectCount}✗ · score <b>${myScore}</b> — still waiting on <b>${stillRacing}</b>. This updates automatically.`;
@@ -2409,7 +2465,7 @@
     if(!mp.active || !mp.roomCode || !mp.playerId) return;
     fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
       glucose, stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
-      correctCount: myCorrectCount, incorrectCount: myIncorrectCount,
+      correctCount: myCorrectCount, incorrectCount: myIncorrectCount, bonusScore: myBonusScore,
     }).catch(()=>{});
   }
   // Called when my own race ends for ANY reason — reached the last stage,
@@ -2422,7 +2478,7 @@
     fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
       done:true, doneReason:reason, finishedWin: reason==='finished',
       glucose: Math.max(0,glucose), stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
-      correctCount: myCorrectCount, incorrectCount: myIncorrectCount,
+      correctCount: myCorrectCount, incorrectCount: myIncorrectCount, bonusScore: myBonusScore,
     });
     get(ref(fbdb, `rooms/${mp.roomCode}`)).then(snap=>{
       const room = snap.val();
@@ -2483,7 +2539,7 @@
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-09-02-streak-stall-warning-timer-toggle'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-09-02-live-score-hud-scoring-explainer'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
