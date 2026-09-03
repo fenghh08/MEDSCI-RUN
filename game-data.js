@@ -228,13 +228,15 @@
    GAME_CONFIG — every tunable number lives here in one place.
    ====================================================================== */
   const GAME_CONFIG = {
-    baseSpeed: 750,            // px/s at Stage I
-    speedRampPerStage: 20,     // added per stage index (0-based) — one-time bump on stage change
+    baseSpeed: 600,            // px/s at Stage I
+    speedRampPerStage: 40,     // added per stage index (0-based) — one-time bump on stage change
     speedRampPerSecond: 10,    // added continuously for every second survived — this is what makes it feel gradual
     maxSpeed: 1000,             // speed never exceeds this
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
+    postAnswerPauseMs: 1200,   // brief freeze after clicking Continue, before the run resumes -- gives a beat to
+                               // get oriented instead of getting dropped straight back next to whatever piled up
     obstacleSpawnBaseMs: 250,  // topic-block spawn interval = base + random(0..rand)
     obstacleSpawnRandMs: 450,
     glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
