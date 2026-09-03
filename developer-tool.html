@@ -237,6 +237,29 @@
       <p class="card-sub">Theme → topic → item — click any item to expand its full description, mechanism, tags, and every question tied to it. This is generated live from game-data.js, so it's always up to date. Anything shown as "pending" was added this session and hasn't been merged into game-data.js yet, so its full detail isn't available here until it has.</p>
       <div class="btn-row" style="margin-bottom:8px;">
         <button type="button" class="secondary" id="jumpToLectureImportBtn">📄 Add questions by lecture</button>
+        <button type="button" class="secondary" id="addTopicToggleBtn">➕ Add a topic</button>
+        <button type="button" class="secondary" id="copyStructureBtn">📋 Copy structure (theme → topic → item)</button>
+      </div>
+      <div class="new-block" id="addTopicBlock">
+        <div class="row2">
+          <label class="field" style="margin-bottom:8px;">
+            <span class="fl-label">Theme <span class="req">*</span></span>
+            <select id="newTopicTheme"></select>
+          </label>
+          <label class="field" style="margin-bottom:8px;">
+            <span class="fl-label">Topic name <span class="req">*</span></span>
+            <input type="text" id="newTopicLabelInput" placeholder="e.g. Diagnostics">
+          </label>
+        </div>
+        <label class="field" style="margin-bottom:8px;max-width:120px;">
+          <span class="fl-label">Icon</span>
+          <input type="text" id="newTopicIconInput" value="📋" maxlength="4">
+        </label>
+        <span class="fl-help">Topics are shared across every course, so pick a name that isn't already used for something else. This creates the topic itself, empty — add items to it afterward, either here or from the New item tab.</span>
+        <div class="btn-row" style="margin-top:8px;">
+          <button type="button" id="addTopicSubmitBtn">Add topic</button>
+          <button type="button" class="secondary" id="addTopicCancelBtn">Cancel</button>
+        </div>
       </div>
       <div class="struct-stats" id="structStats"></div>
       <input type="text" class="struct-search" id="structSearchInput" placeholder="🔍 Search items and questions by name, description, or #tag…">
@@ -723,7 +746,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-09-02-fix-stale-default-template'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-09-02-add-topics-copy-structure-desc-fix'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -887,6 +910,9 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       }
     }
     banner.className = (anyStale || anyError) ? 'sync-banner off' : 'sync-banner ok';
+    if(anyStale || anyError){
+      lines.push(`ℹ️ Just pushed? GitHub's raw file host caches for a few minutes, so a push can take up to ~5 min to show up here — wait a bit and check again before assuming something's wrong.`);
+    }
     textEl.innerHTML = lines.join('<br>');
     btn.disabled = false;
   });
@@ -1455,7 +1481,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
         theme: editingItemTheme, topicId: editingItemTopic, usingNewTopic: false,
         itemId: editingItemId, baseSlug: currentItemSlug(), editingItemId,
         label: i_label.value.trim() || 'Untitled item',
-        description: i_description.value.trim() || '(add a description)',
+        description: i_description.value.trim(),
         mechanism: i_mechanism.value.trim(),
         funFacts: i_funFactsEl._getValues(),
         hashtags: i_hashtagsEl._getValues(),
@@ -1478,7 +1504,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       newTopicIcon: i_newTopicIcon.value.trim() || '📋',
       itemId, baseSlug,
       label: i_label.value.trim() || 'Untitled item',
-      description: i_description.value.trim() || '(add a description)',
+      description: i_description.value.trim(),
       mechanism: i_mechanism.value.trim(),
       funFacts: i_funFactsEl._getValues(),
       hashtags: i_hashtagsEl._getValues(),
@@ -1558,7 +1584,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       ${courseStr ? `<div class="p-course">🎓 ${courseStr}</div>` : ''}
       ${o.hashtags.length ? `<div class="p-chips">${o.hashtags.map(h=>`<span class="p-chip">#${h}</span>`).join('')}</div>` : ''}
       ${imagesHtml}
-      <p class="p-desc">${o.description}</p>
+      <p class="p-desc">${o.description || '<span style="opacity:.6;">(add a description)</span>'}</p>
       ${mechHtml}
       ${factsHtml}
       ${refsHtml}
@@ -2295,6 +2321,69 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     renderCourseStructureList();
     renderHashtagStructureList();
   }
+  // Plain-text theme -> topic -> item tree, labels only (no descriptions,
+  // mechanisms, or questions) -- meant for pasting somewhere else as a
+  // quick reference to what already exists, not as a data export.
+  function buildStructureText(){
+    let out = '';
+    KNOWN_THEMES.forEach(theme=>{
+      out += `${theme.label}\n`;
+      const topicsInTheme = Object.entries(KNOWN_TOPICS).filter(([id,t])=>t.theme===theme.id);
+      topicsInTheme.forEach(([topicId, topic])=>{
+        out += `  ${topic.label}\n`;
+        const itemsInTopic = KNOWN_ITEMS.filter(it=>it.theme===theme.id && it.topic===topicId);
+        itemsInTopic.forEach(it=>{ out += `    - ${it.label}\n`; });
+      });
+    });
+    return out.trim();
+  }
+  document.getElementById('copyStructureBtn').addEventListener('click', ()=>{
+    copyText(buildStructureText());
+    toast('Structure copied — theme, topic, and item labels only');
+  });
+  // ---- standalone "add a topic" (no item required) ----
+  const addTopicToggleBtn = document.getElementById('addTopicToggleBtn');
+  const addTopicBlock = document.getElementById('addTopicBlock');
+  const addTopicCancelBtn = document.getElementById('addTopicCancelBtn');
+  const newTopicTheme = document.getElementById('newTopicTheme');
+  const newTopicLabelInput = document.getElementById('newTopicLabelInput');
+  const newTopicIconInput = document.getElementById('newTopicIconInput');
+  function closeAddTopicBlock(){
+    addTopicBlock.classList.remove('show');
+    newTopicLabelInput.value = ''; newTopicIconInput.value = '📋';
+  }
+  addTopicToggleBtn.addEventListener('click', ()=>{
+    if(addTopicBlock.classList.contains('show')){ closeAddTopicBlock(); return; }
+    fillThemeSelect(newTopicTheme);
+    addTopicBlock.classList.add('show');
+    newTopicLabelInput.focus();
+  });
+  addTopicCancelBtn.addEventListener('click', closeAddTopicBlock);
+  function topicCodeString(o){
+    return `// new topic — add to TOPICS, then (empty) to THEMES.${o.theme}.topics in game-data.js\n`
+      + `'${o.topicId}': { label:'${esc(o.label)}', icon:'${o.icon}', color:'#c58bff' },\n\n`
+      + `// -> THEMES.${o.theme}.topics in game-data.js\n`
+      + `'${o.topicId}': { items:{} },`;
+  }
+  document.getElementById('addTopicSubmitBtn').addEventListener('click', ()=>{
+    const label = newTopicLabelInput.value.trim();
+    if(!label){ toast('Give the topic a name first'); return; }
+    const theme = newTopicTheme.value;
+    const icon = newTopicIconInput.value.trim() || '📋';
+    const topicId = slugify(label) || 'newtopic';
+    if(KNOWN_TOPICS[topicId]){ toast(`"${KNOWN_TOPICS[topicId].label}" already exists as a topic — pick a different name`); return; }
+    const o = { theme, topicId, label, icon };
+    pushToQueue({ type:'topic', title:label, code:topicCodeString(o), note:`${KNOWN_THEMES.find(t=>t.id===theme).label} · new topic`, data:o });
+    KNOWN_TOPICS[topicId] = { label, theme };
+    closeAddTopicBlock();
+    toast('Topic queued — add items to it whenever you\'re ready');
+    renderStructureList();
+    // Refresh every topic dropdown that's currently showing this theme, so
+    // the new topic is immediately pickable without a page reload.
+    [[i_theme,i_topic],[q_theme,q_topic],[csvitem_theme,csvitem_topic]].forEach(([themeSel,topicSel])=>{
+      if(themeSel.value===theme) fillTopicSelect(topicSel, theme);
+    });
+  });
   // Checks every MERGED item (pending ones are already flagged separately
   // above, via pendingCount) against the fields most likely to be
   // genuinely missing -- particularly useful for spotting placeholder
@@ -2326,7 +2415,12 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       const full = RD.THEMES[it.theme]?.topics?.[it.topic]?.items?.[it.id];
       if(!full) return; // not merged yet -- already counted as "pending merge" above
       const missing = [];
-      if(active.has('description') && (!full.description || !full.description.trim())) missing.push(fieldLabel.description);
+      // Catches both genuinely-empty descriptions and the old placeholder
+      // text ('(add a description)') that earlier versions of this tool
+      // used to bake into saved items when the field was left blank --
+      // those look "filled in" otherwise and would never surface here.
+      const descText = (full.description||'').trim();
+      if(active.has('description') && (!descText || descText === '(add a description)')) missing.push(fieldLabel.description);
       if(active.has('mechanism') && (!full.mechanism || !full.mechanism.trim())) missing.push(fieldLabel.mechanism);
       if(active.has('images') && (!full.images || !full.images.length)) missing.push(fieldLabel.images);
       if(active.has('funFacts') && (!full.funFacts || !full.funFacts.length)) missing.push(fieldLabel.funFacts);
@@ -2474,7 +2568,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       return;
     }
     batchList.innerHTML = '';
-    const icons = { item:'📄', question:'❓', course:'📚', 'edit-item':'✏️', 'delete-item':'🗑', 'delete-question':'🗑' };
+    const icons = { item:'📄', question:'❓', course:'📚', topic:'🗂️', 'edit-item':'✏️', 'delete-item':'🗑', 'delete-question':'🗑' };
     entries.forEach(([key, entry])=>{
       const row = document.createElement('div');
       row.className = 'queue-item';
@@ -2501,6 +2595,9 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
         if(entry && entry.type === 'course' && entry.data && !RD.THEMES[entry.data.id]){
           const idx = KNOWN_THEMES.findIndex(t=>t.id===entry.data.id);
           if(idx>=0) KNOWN_THEMES.splice(idx,1);
+        }
+        if(entry && entry.type === 'topic' && entry.data && !RD.THEMES[entry.data.theme]?.topics?.[entry.data.topicId]){
+          delete KNOWN_TOPICS[entry.data.topicId];
         }
         removeFromQueue(key);
         renderStructureList();
@@ -2810,6 +2907,12 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     }
     if(entry.type === 'course'){
       themes[o.id] = { label:o.label, icon:o.icon, blurb:o.blurb, topics:{} };
+      return;
+    }
+    if(entry.type === 'topic'){
+      topics[o.topicId] = topics[o.topicId] || { label:o.label, icon:o.icon, color:'#c58bff' };
+      const th = themes[o.theme];
+      if(th) th.topics[o.topicId] = th.topics[o.topicId] || { items:{} };
       return;
     }
     if(entry.type === 'item' || entry.type === 'edit-item'){
