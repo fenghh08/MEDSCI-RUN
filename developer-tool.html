@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Runner Game — Developer Tool</title>
-<!-- Live game content (themes, topics, items, courses, ...) — the same file
+<!-- Live game content (courses, topics, items, ...) — the same file
      the game itself loads. Everything below reads from window.RUNNER_DATA,
      so this form always reflects what's actually in the game — no manual
      re-syncing needed when content is added. -->
@@ -201,7 +201,7 @@
     <h3>How this works</h3>
     <ol>
       <li>Type your name below (so Eason knows who submitted what).</li>
-      <li>Pick a tab: <b>New Item</b> (a study guide entry), <b>New Question</b>, or <b>New Theme</b> (a whole new subject area).</li>
+      <li>Pick a tab: <b>New Item</b> (a study guide entry), <b>New Question</b>, or <b>New Course</b> (a whole new subject area).</li>
       <li>Fill in the fields. A code preview updates live on the right — you don't need to understand it, just check the fields look right.</li>
       <li>Click <b>"Add to batch"</b>. It's saved straight to the shared Team Queue below — synced live, so Eason (and everyone else) can already see it. Repeat for as many items/questions as you want to contribute. If you added any image/icon files, upload them to the shared Drive folder linked below, named exactly as shown.</li>
       <li>That's it — you don't need to copy, download, or send anything to Eason. He reviews and merges straight from the queue. ("Copy entire queue" / "Download as .txt" are just there if you want a personal record of what you added, or as a fallback if the queue can't sync for some reason.)</li>
@@ -227,23 +227,23 @@
     <button class="tab" id="tabStructure">📖 Existing structure</button>
     <button class="tab active" id="tabItem">📄 New item</button>
     <button class="tab" id="tabQuestion">❓ New question</button>
-    <button class="tab" id="tabCourse">📚 New theme</button>
+    <button class="tab" id="tabCourse">📚 New course</button>
   </div>
 
   <!-- ================= STRUCTURE BROWSER ================= -->
   <div id="structureSection" style="display:none;">
     <div class="card">
       <h2>What's already in the game</h2>
-      <p class="card-sub">Theme → topic → item — click any item to expand its full description, mechanism, tags, and every question tied to it. This is generated live from game-data.js, so it's always up to date. Anything shown as "pending" was added this session and hasn't been merged into game-data.js yet, so its full detail isn't available here until it has.</p>
+      <p class="card-sub">Course → topic → item — click any item to expand its full description, mechanism, tags, and every question tied to it. This is generated live from game-data.js, so it's always up to date. Anything shown as "pending" was added this session and hasn't been merged into game-data.js yet, so its full detail isn't available here until it has.</p>
       <div class="btn-row" style="margin-bottom:8px;">
         <button type="button" class="secondary" id="jumpToLectureImportBtn">📄 Add questions by lecture</button>
         <button type="button" class="secondary" id="addTopicToggleBtn">➕ Add a topic</button>
-        <button type="button" class="secondary" id="copyStructureBtn">📋 Copy structure (theme → topic → item)</button>
+        <button type="button" class="secondary" id="copyStructureBtn">📋 Copy structure (course → topic → item)</button>
       </div>
       <div class="new-block" id="addTopicBlock">
         <div class="row2">
           <label class="field" style="margin-bottom:8px;">
-            <span class="fl-label">Theme <span class="req">*</span></span>
+            <span class="fl-label">Course <span class="req">*</span></span>
             <select id="newTopicTheme"></select>
           </label>
           <label class="field" style="margin-bottom:8px;">
@@ -314,7 +314,7 @@
 
         <div class="row2">
           <label class="field">
-            <span class="fl-label">Theme <span class="req">*</span></span>
+            <span class="fl-label">Course <span class="req">*</span></span>
             <select id="i_theme"></select>
           </label>
           <label class="field">
@@ -432,11 +432,11 @@
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <h2>📄 Bulk-add items from CSV — for one theme + topic at a time (COMING SOON...)</h2>
-      <p class="card-sub">Pick the theme and topic these items belong to, then paste CSV text (with a header row) covering just the item fields. Columns, any order, matched by name: <b>label, description</b> (required), <b>mechanism, funFacts, hashtags</b> (optional; funFacts/hashtags separate multiple with a semicolon), <b>course, class</b> (optional — must exactly match an existing course code and class key, e.g. <code>MEDS3002</code> / <code>L14</code>; a row with a course or class that doesn't match a real one is rejected rather than silently creating an untagged mismatch). References and images aren't supported here — add those afterward via edit mode if needed. Each valid row becomes its own entry in the queue, exactly as if added one at a time.</p>
+      <h2>📄 Bulk-add items from CSV — for one course + topic at a time (COMING SOON...)</h2>
+      <p class="card-sub">Pick the course and topic these items belong to, then paste CSV text (with a header row) covering just the item fields. Columns, any order, matched by name: <b>label, description</b> (required), <b>mechanism, funFacts, hashtags</b> (optional; funFacts/hashtags separate multiple with a semicolon), <b>course, class</b> (optional — must exactly match an existing course code and class key, e.g. <code>MEDS3002</code> / <code>L14</code>; a row with a course or class that doesn't match a real one is rejected rather than silently creating an untagged mismatch). References and images aren't supported here — add those afterward via edit mode if needed. Each valid row becomes its own entry in the queue, exactly as if added one at a time.</p>
       <div class="row2">
         <label class="field">
-          <span class="fl-label">Theme <span class="req">*</span></span>
+          <span class="fl-label">Course <span class="req">*</span></span>
           <select id="csvitem_theme"></select>
         </label>
         <label class="field">
@@ -465,7 +465,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
 
         <div class="row2">
           <label class="field">
-            <span class="fl-label">Theme <span class="req">*</span></span>
+            <span class="fl-label">Course <span class="req">*</span></span>
             <select id="q_theme"></select>
           </label>
           <label class="field">
@@ -496,6 +496,14 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
           <span class="fl-label">Explanation <span class="req">*</span></span>
           <span class="fl-help">Shown after answering, whether right or wrong.</span>
           <textarea id="q_explanation" placeholder="Why the correct answer is correct."></textarea>
+        </label>
+        <label class="field" style="max-width:200px;">
+          <span class="fl-label">Difficulty</span>
+          <select id="q_difficulty">
+            <option value="easy">🟢 Easy</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="hard">🔴 Hard</option>
+          </select>
         </label>
         <label class="field">
           <span class="fl-label">Hashtags</span>
@@ -562,7 +570,7 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
 
     <div class="card" style="margin-top:16px;">
       <h2>📄 Bulk-add questions from CSV — for one existing item at a time</h2>
-      <p class="card-sub">Pick the item these questions belong to, then paste CSV text (with a header row) covering just the question fields — theme/topic/item are already fixed by your pick above, so the CSV doesn't need to repeat them. Columns, any order, matched by name: <b>prompt, optionA, optionB, optionC, optionD, correct</b> (A/B/C/D), <b>explanation, hashtags</b> (separate multiple with a semicolon). Each valid row becomes its own entry in the queue below, exactly as if you'd added it one at a time.</p>
+      <p class="card-sub">Pick the item these questions belong to, then paste CSV text (with a header row) covering just the question fields — course/topic/item are already fixed by your pick above, so the CSV doesn't need to repeat them. Columns, any order, matched by name: <b>prompt, optionA, optionB, optionC, optionD, correct</b> (A/B/C/D), <b>explanation, hashtags</b> (separate multiple with a semicolon). Each valid row becomes its own entry in the queue below, exactly as if you'd added it one at a time.</p>
       <p class="card-sub">Prefer filling this in as a spreadsheet? Use the <a href="https://docs.google.com/spreadsheets/d/1BlL64j0qI--hMyGCwRw3hcRho6tvo_-CfkiIAf01ZG4/edit?usp=sharing" target="_blank" rel="noopener" style="color:var(--membrane);">question-adding template sheet</a> — fill it in, <i>File → Download → Comma Separated Values (.csv)</i>, then paste the contents here.</p>
       <label class="field">
         <span class="fl-label">Which item are these questions for? <span class="req">*</span></span>
@@ -580,11 +588,12 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <h2>📄 Add questions by lecture — mixed themes/topics/items in one paste</h2>
-      <p class="card-sub">For a whole lecture's worth of questions at once, even when they land on different items, topics, or themes — theme/topic/item are given per row instead of picked once. <b>If a row's item doesn't already exist, it's created automatically as a placeholder</b> (just the label — no description yet) so the question has somewhere to attach; it'll show up flagged as incomplete until someone fills the rest in later. Course &amp; class below is optional and only applies to newly-created placeholder items.</p>
-      <p class="card-sub">Prefer a spreadsheet? The <a href="https://docs.google.com/spreadsheets/d/1BlL64j0qI--hMyGCwRw3hcRho6tvo_-CfkiIAf01ZG4/edit?usp=sharing" target="_blank" rel="noopener" style="color:var(--membrane);">question-adding template sheet</a> works here too — just add three columns at the start (<code>theme</code>, <code>topic</code>, <code>item</code>) before the existing ones, fill those in per row, then export and paste as usual.</p>
+      <h2>📄 Add questions by lecture — mixed courses/topics/items in one paste</h2>
+      <p class="card-sub">For a whole lecture's worth of questions at once, even when they land on different items, topics, or courses — course/topic/item are given per row instead of picked once. <b>If a row's item doesn't already exist, it's created automatically as a placeholder</b> (just the label — no description yet) so the question has somewhere to attach; it'll show up flagged as incomplete until someone fills the rest in later. A row's <code>lecture</code> column (e.g. <code>L12</code>) sets that specific lecture as the citation for any new item it creates — leave it blank to fall back to the Course &amp; class default below instead.</p>
+      <p class="card-sub">Prefer a spreadsheet? The <a href="https://docs.google.com/spreadsheets/d/1BlL64j0qI--hMyGCwRw3hcRho6tvo_-CfkiIAf01ZG4/edit?usp=sharing" target="_blank" rel="noopener" style="color:var(--membrane);">question-adding template sheet</a> works here too — just add four columns at the start (<code>course</code>, <code>lecture</code>, <code>topic</code>, <code>item</code>) before the existing ones, fill those in per row, then export and paste as usual.</p>
       <label class="field">
-        <span class="fl-label">Course &amp; class for any new items (optional)</span>
+        <span class="fl-label">Course &amp; class default for any new items (optional)</span>
+        <span class="fl-help">Only used for a row whose own <code>lecture</code> column is blank.</span>
         <select id="lec_course"></select>
       </label>
       <div class="new-block show" id="lec_classBlock">
@@ -595,8 +604,8 @@ Ibrutinib,&quot;A BTK inhibitor used in CLL.&quot;,&quot;Irreversibly binds BTK.
       </div>
       <label class="field">
         <span class="fl-label">Paste CSV text</span>
-        <textarea id="lec_textarea" rows="10" placeholder="theme,topic,item,prompt,optionA,optionB,optionC,optionD,correct,explanation,hashtags
-Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,JAK2,mTOR,PI3K,A,&quot;Ibrutinib irreversibly binds BTK.&quot;,Leukemia"></textarea>
+        <textarea id="lec_textarea" rows="10" placeholder="course,lecture,topic,item,prompt,optionA,optionB,optionC,optionD,correct,explanation,hashtags,difficulty
+MEDS3002,L12,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,JAK2,mTOR,PI3K,A,&quot;Ibrutinib irreversibly binds BTK.&quot;,Leukemia,medium"></textarea>
       </label>
       <div id="lec_preview" style="margin:10px 0;font-size:12px;color:var(--hud-dim);"></div>
       <div class="btn-row">
@@ -605,15 +614,15 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     </div>
   </div>
 
-  <!-- ================= THEME FORM ================= -->
+  <!-- ================= COURSE FORM ================= -->
   <div id="courseSection" style="display:none;">
     <div class="layout">
       <div class="card">
-        <h2>New theme / subject area</h2>
-        <p class="card-sub">Use this if you want to add a whole new subject (like "Cancer" or "Biochemistry") that isn't in the game yet. You'll still need to add topics and items into it afterwards, using the "New item" tab and picking this theme.</p>
+        <h2>New course / subject area</h2>
+        <p class="card-sub">Use this if you want to add a whole new subject (like "MEDS3002" or "MEDS2003") that isn't in the game yet. You'll still need to add topics and items into it afterwards, using the "New item" tab and picking this course.</p>
 
         <label class="field">
-          <span class="fl-label">Theme name <span class="req">*</span></span>
+          <span class="fl-label">Course name <span class="req">*</span></span>
           <input type="text" id="c_label" placeholder="e.g. Pharmacology 101">
         </label>
         <div class="id-preview" id="c_idPreview">id: —</div>
@@ -647,7 +656,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   <!-- ================= TEAM QUEUE ================= -->
   <div class="batch">
     <h2>Team queue — synced live with everyone else</h2>
-    <p class="card-sub" id="queueSubtext">Add several items/questions/themes above — they show up here for everyone working on this, in real time. Once Eason's merged something into game-data.js, remove it here so the queue doesn't pile up.</p>
+    <p class="card-sub" id="queueSubtext">Add several items/questions/courses above — they show up here for everyone working on this, in real time. Once Eason's merged something into game-data.js, remove it here so the queue doesn't pile up.</p>
     <div id="batchList"></div>
     <div class="btn-row">
       <button class="primary" id="batchCopyAll">Copy entire queue</button>
@@ -658,7 +667,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   <!-- ================= MAINTAINER: MERGE INTO game-data.js ================= -->
   <div class="batch" style="border-color:var(--good);">
     <h2>🛠 Merge the queue into a ready-to-paste game-data.js</h2>
-    <p class="card-sub">For whoever actually maintains game-data.js. Takes everything currently in the queue above and folds it into a full copy of the game data — themes, topics, and items included — so you copy once and replace the whole file, instead of finding and pasting each section by hand. Nothing here writes to any file directly; you still paste the result over game-data.js yourself.</p>
+    <p class="card-sub">For whoever actually maintains game-data.js. Takes everything currently in the queue above and folds it into a full copy of the game data — courses, topics, and items included — so you copy once and replace the whole file, instead of finding and pasting each section by hand. Nothing here writes to any file directly; you still paste the result over game-data.js yourself.</p>
     <div id="maintainerLockGate" class="lock-gate">
       <div>🔒 Maintainer PIN required — this section can delete or overwrite content.</div>
       <input type="password" id="maintainerPinInput" maxlength="4" inputmode="numeric" placeholder="••••">
@@ -682,7 +691,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       <details style="margin-top:14px;">
         <summary style="cursor:pointer;font-size:12px;color:var(--hud-dim);">⚙️ Update the template (only needed if you've hand-edited GAME_CONFIG, STAGES, or the header comments directly — the merge otherwise already reads the current game-data.js live)</summary>
         <div style="margin-top:10px;">
-          <p class="card-sub" style="margin-top:0;">Paste your current, working game-data.js here to refresh the static parts the merge carries through unchanged (everything outside COURSES/TOPICS/THEMES — comments, GAME_CONFIG, LIFE_CONFIG, STAGES, etc.). This is stored in this browser only.</p>
+          <p class="card-sub" style="margin-top:0;">Paste your current, working game-data.js here to refresh the static parts the merge carries through unchanged (everything outside COURSES/THEMES — comments, GAME_CONFIG, LIFE_CONFIG, STAGES, etc.). This is stored in this browser only.</p>
           <textarea id="templateInput" rows="6" placeholder="Paste the full contents of your current game-data.js here..."></textarea>
           <div class="btn-row">
             <button class="secondary" id="templateUpdateBtn">Extract &amp; save template</button>
@@ -746,7 +755,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-09-02-add-topics-copy-structure-desc-fix'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-09-03-course-based-restructure'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -756,13 +765,24 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   // in this folder; it's "what version of the game shipped alongside THIS
   // copy of the dev tool" — keep this in sync with medsci-runner.html's own
   // GAME_VERSION every time you update either file together.
-  const GAME_VERSION_FOR_CHECK = '2026-09-02-streak-stall-warning-timer-toggle';
+  const GAME_VERSION_FOR_CHECK = '2026-09-03-course-based-restructure';
 
   const RD = window.RUNNER_DATA;
   if(!RD){
     document.write('<p style="color:#ff3b5c;padding:20px;">Could not load game-data.js — make sure it sits in the same folder as this file, then reload.</p>');
     throw new Error('window.RUNNER_DATA missing — is game-data.js next to this file?');
   }
+  // Topics are authored per-course now (label/icon/color live inline under
+  // RD.THEMES[courseId].topics[topicId]) instead of a shared taxonomy, since
+  // a topic belongs to the specific course it's filed under. This flat
+  // index is derived here purely so every RD.TOPICS[topicId] lookup below
+  // keeps working unchanged.
+  RD.TOPICS = {};
+  Object.values(RD.THEMES).forEach(course=>{
+    Object.entries(course.topics).forEach(([topicId, t])=>{
+      RD.TOPICS[topicId] = { label:t.label, icon:t.icon, color:t.color };
+    });
+  });
 
   // ======================================================================
   // MAINTAINER PIN — a light deterrent, not real security. This is a plain
@@ -1533,8 +1553,8 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   function itemCodeString(o){
     let out = '';
     if(o.usingNewTopic){
-      out += `// new topic — add to TOPICS, then THEMES.${o.theme}.topics in game-data.js\n`;
-      out += `'${o.topicId}': { label:'${esc(o.newTopicLabel||o.topicId)}', icon:'${o.newTopicIcon}', color:'#c58bff' },\n\n`;
+      out += `// new topic — add to THEMES.${o.theme}.topics in game-data.js (topics are specific to their course, so this is nested directly under it, not a separate shared list)\n`;
+      out += `'${o.topicId}': { label:'${esc(o.newTopicLabel||o.topicId)}', icon:'${o.newTopicIcon}', color:'#c58bff', items:{ /* the item below goes here */ } },\n\n`;
     }
     if(o.addCourseSnippet) out += o.addCourseSnippet + '\n\n';
     if(o.addClassSnippet) out += o.addClassSnippet + '\n\n';
@@ -1652,7 +1672,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   // mismatch that fails to group with anything.
   function parseCsvItems(){
     const theme = csvitem_theme.value, topicId = csvitem_topic.value;
-    if(!theme || !topicId) return { valid:[], errors:['Pick a theme and topic first.'] };
+    if(!theme || !topicId) return { valid:[], errors:['Pick a course and topic first.'] };
     const rows = parseCSV(csvitem_textarea.value);
     if(rows.length < 2) return { valid:[], errors:['Paste a header row plus at least one item row.'] };
     const header = rows[0].map(h=>h.trim().toLowerCase());
@@ -1731,6 +1751,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   const q_prompt = document.getElementById('q_prompt');
   const q_optionsEl = document.getElementById('q_options');
   const q_explanation = document.getElementById('q_explanation');
+  const q_difficulty = document.getElementById('q_difficulty');
   const q_hashtagsEl = document.getElementById('q_hashtags');
   const q_codeOut = document.getElementById('q_codeOut');
   const q_previewCard = document.getElementById('q_previewCard');
@@ -1769,6 +1790,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       options: options.filter(Boolean),
       correctIndex,
       explanation: q_explanation.value.trim() || '(add an explanation)',
+      difficulty: q_difficulty.value,
       hashtags: q_hashtagsEl._getValues(),
       course: courseInfo.course, class: courseInfo.class, relatedCourseOverride: courseInfo.relatedCourseOverride, courseInfo,
       addCourseSnippet: courseInfo.addCourseSnippet, addClassSnippet: courseInfo.addClassSnippet,
@@ -1782,6 +1804,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     if(o.addClassSnippet) pre += o.addClassSnippet + '\n\n';
     const optsStr = o.options.map(op=>`'${esc(op)}'`).join(', ');
     const hashtagsStr = o.hashtags.length ? `, hashtags:[${o.hashtags.map(h=>`'${esc(h)}'`).join(', ')}]` : '';
+    const difficultyStr = o.difficulty && o.difficulty!=='medium' ? `, difficulty:'${o.difficulty}'` : '';
     // Questions live nested under their item now, in an item.questions
     // array, and inherit the item's course/class automatically — only
     // spell course/class out on the question itself if it genuinely
@@ -1791,7 +1814,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     let tail = '';
     if(o.relatedCourseOverride) tail = `,\n  relatedCourse:'${escMultiline(o.relatedCourseOverride)}'`;
     else if(differsFromItem) tail = `,\n  course:'${o.course}'${o.class?`,\n  class:'${o.class}'`:''}`;
-    return `${pre}// -> THEMES.${o.theme}.topics.${o.topic}.items.${o.itemId}.questions in game-data.js\n{ id:'${o.qId}', prompt:'${esc(o.prompt)}',\n  options:[${optsStr}], correctIndex:${o.correctIndex},\n  explanation:'${esc(o.explanation)}'${hashtagsStr}${tail} },`;
+    return `${pre}// -> THEMES.${o.theme}.topics.${o.topic}.items.${o.itemId}.questions in game-data.js\n{ id:'${o.qId}', prompt:'${esc(o.prompt)}',\n  options:[${optsStr}], correctIndex:${o.correctIndex},\n  explanation:'${esc(o.explanation)}'${difficultyStr}${hashtagsStr}${tail} },`;
   }
   // Mirrors the real MCQ modal's styling — correct option highlighted, same
   // as a player would see it after answering.
@@ -1880,7 +1903,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     const col = name => header.indexOf(name);
     const idx = {
       prompt: col('prompt'), a: col('optiona'), b: col('optionb'), c: col('optionc'), d: col('optiond'),
-      correct: col('correct'), explanation: col('explanation'), hashtags: col('hashtags'),
+      correct: col('correct'), explanation: col('explanation'), hashtags: col('hashtags'), difficulty: col('difficulty'),
     };
     const missingCols = ['prompt','a','b','c','d','correct','explanation'].filter(k=>idx[k]<0);
     if(missingCols.length) return { valid:[], errors:[`Missing required column(s): ${missingCols.map(k=>({a:'optionA',b:'optionB',c:'optionC',d:'optionD'}[k]||k)).join(', ')}.`] };
@@ -1893,6 +1916,8 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       const correctLetter = (row[idx.correct]||'').trim().toUpperCase();
       const explanation = (row[idx.explanation]||'').trim();
       const hashtags = idx.hashtags>=0 ? (row[idx.hashtags]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
+      const difficultyRaw = idx.difficulty>=0 ? (row[idx.difficulty]||'').trim().toLowerCase() : '';
+      const difficulty = ['easy','medium','hard'].includes(difficultyRaw) ? difficultyRaw : 'medium';
       const rowNum = r+1; // 1-indexed, matches what a person sees in a spreadsheet
       if(!prompt){ errors.push(`Row ${rowNum}: missing prompt, skipped.`); continue; }
       if(options.some(o=>!o)){ errors.push(`Row ${rowNum}: needs all four options, skipped.`); continue; }
@@ -1902,7 +1927,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       valid.push({
         theme: known.theme, topic: known.topic, itemId: known.id,
         qId: 'q-' + known.topic + '-' + randSuffix(),
-        prompt, options, correctIndex, explanation, hashtags,
+        prompt, options, correctIndex, explanation, difficulty, hashtags,
         course: '', class: '', relatedCourseOverride: '',
         addCourseSnippet: '', addClassSnippet: '',
         courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
@@ -1963,17 +1988,21 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     if(rows.length < 2) return { valid:[], newItems:[], errors:['Paste a header row plus at least one question row.'] };
     const header = rows[0].map(h=>h.trim().toLowerCase());
     const col = name => header.indexOf(name);
-    const idx = { theme:col('theme'), topic:col('topic'), item:col('item'), prompt:col('prompt'), a:col('optiona'), b:col('optionb'), c:col('optionc'), d:col('optiond'), correct:col('correct'), explanation:col('explanation'), hashtags:col('hashtags') };
-    const missingCols = ['theme','topic','item','prompt','a','b','c','d','correct','explanation'].filter(k=>idx[k]<0);
+    const idx = { course:col('course'), lecture:col('lecture'), topic:col('topic'), item:col('item'), prompt:col('prompt'), a:col('optiona'), b:col('optionb'), c:col('optionc'), d:col('optiond'), correct:col('correct'), explanation:col('explanation'), hashtags:col('hashtags'), difficulty:col('difficulty') };
+    const missingCols = ['course','topic','item','prompt','a','b','c','d','correct','explanation'].filter(k=>idx[k]<0);
     if(missingCols.length) return { valid:[], newItems:[], errors:[`Missing required column(s): ${missingCols.map(k=>({a:'optionA',b:'optionB',c:'optionC',d:'optionD'}[k]||k)).join(', ')}.`] };
-    const lecCourse = lec_course.value, lecClass = lec_class.value;
+    // Per-row "lecture" is optional and, when given, takes priority over
+    // these top-of-form defaults -- they're only a fallback for rows that
+    // don't specify their own lecture.
+    const lecCourseDefault = lec_course.value, lecClassDefault = lec_class.value;
     const valid = [], newItems = [], errors = [];
-    const decidedThisBatch = {}; // theme::topic::labelLower -> itemId, scoped to THIS parse only
+    const decidedThisBatch = {}; // course::topic::labelLower -> itemId, scoped to THIS parse only
     for(let r=1; r<rows.length; r++){
       const row = rows[r];
       if(row.every(f=>(f||'').trim()==='')) continue;
       const rowNum = r+1;
-      const themeInput = (row[idx.theme]||'').trim();
+      const courseInput = (row[idx.course]||'').trim();
+      const lectureInput = idx.lecture>=0 ? (row[idx.lecture]||'').trim() : '';
       const topicInput = (row[idx.topic]||'').trim();
       const itemLabel = (row[idx.item]||'').trim();
       const prompt = (row[idx.prompt]||'').trim();
@@ -1981,7 +2010,9 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       const correctLetter = (row[idx.correct]||'').trim().toUpperCase();
       const explanation = (row[idx.explanation]||'').trim();
       const hashtags = idx.hashtags>=0 ? (row[idx.hashtags]||'').split(';').map(s=>s.trim()).filter(Boolean) : [];
-      if(!themeInput){ errors.push(`Row ${rowNum}: missing theme, skipped.`); continue; }
+      const difficultyRaw = idx.difficulty>=0 ? (row[idx.difficulty]||'').trim().toLowerCase() : '';
+      const difficulty = ['easy','medium','hard'].includes(difficultyRaw) ? difficultyRaw : 'medium';
+      if(!courseInput){ errors.push(`Row ${rowNum}: missing course, skipped.`); continue; }
       if(!topicInput){ errors.push(`Row ${rowNum}: missing topic, skipped.`); continue; }
       if(!itemLabel){ errors.push(`Row ${rowNum}: missing item, skipped.`); continue; }
       if(!prompt){ errors.push(`Row ${rowNum}: missing prompt, skipped.`); continue; }
@@ -1989,11 +2020,28 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       const correctIndex = 'ABCD'.indexOf(correctLetter);
       if(correctIndex<0){ errors.push(`Row ${rowNum}: Correct must be A, B, C, or D (got "${correctLetter}"), skipped.`); continue; }
       if(!explanation){ errors.push(`Row ${rowNum}: missing explanation, skipped.`); continue; }
-      const theme = KNOWN_THEMES.find(t=>t.id.toLowerCase()===themeInput.toLowerCase() || t.label.toLowerCase()===themeInput.toLowerCase());
-      if(!theme){ errors.push(`Row ${rowNum}: theme "${themeInput}" doesn't match any existing theme, skipped.`); continue; }
-      const topicEntry = Object.entries(KNOWN_TOPICS).find(([id,t])=> id.toLowerCase()===topicInput.toLowerCase() || t.label.toLowerCase()===topicInput.toLowerCase());
-      if(!topicEntry){ errors.push(`Row ${rowNum}: topic "${topicInput}" doesn't match any existing topic, skipped.`); continue; }
+      const theme = KNOWN_THEMES.find(t=>t.id.toLowerCase()===courseInput.toLowerCase() || t.label.toLowerCase()===courseInput.toLowerCase());
+      if(!theme){ errors.push(`Row ${rowNum}: course "${courseInput}" doesn't match any existing course, skipped.`); continue; }
+      // Topics are specific to their course now, so this only matches
+      // among the already-matched course's own topics -- not globally.
+      const topicEntry = Object.entries(KNOWN_TOPICS).filter(([id,t])=>t.theme===theme.id)
+        .find(([id,t])=> id.toLowerCase()===topicInput.toLowerCase() || t.label.toLowerCase()===topicInput.toLowerCase());
+      if(!topicEntry){ errors.push(`Row ${rowNum}: topic "${topicInput}" doesn't match any existing topic under ${theme.label}, skipped.`); continue; }
       const topicId = topicEntry[0];
+      // The item's own course is always this row's course (they're the
+      // same course an item's filed under, in the normal case); the
+      // lecture column just supplies which specific lecture within it.
+      // A citation to a genuinely DIFFERENT course still goes through the
+      // existing "spans several classes" override afterward, in edit mode.
+      let itemCourse = '', itemClass = '';
+      if(lectureInput){
+        if(!KNOWN_COURSES[theme.id] || !KNOWN_COURSES[theme.id].classes[lectureInput]){
+          errors.push(`Row ${rowNum}: lecture "${lectureInput}" doesn't exist under course ${theme.id}, skipped.`); continue;
+        }
+        itemCourse = theme.id; itemClass = lectureInput;
+      } else if(lecCourseDefault){
+        itemCourse = lecCourseDefault; itemClass = lecClassDefault;
+      }
       let itemId;
       const existing = KNOWN_ITEMS.find(it=>it.theme===theme.id && it.topic===topicId && it.label.toLowerCase()===itemLabel.toLowerCase());
       const dedupeKey = `${theme.id}::${topicId}::${itemLabel.toLowerCase()}`;
@@ -2006,7 +2054,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
         decidedThisBatch[dedupeKey] = itemId;
         newItems.push({
           theme: theme.id, topicId, itemId, label: itemLabel, description: '', mechanism: '',
-          funFacts: [], hashtags: [], refs: [], images: [], course: lecCourse, class: lecCourse?lecClass:'', relatedCourseOverride: '',
+          funFacts: [], hashtags: [], refs: [], images: [], course: itemCourse, class: itemClass, relatedCourseOverride: '',
           usingNewTopic: false, addCourseSnippet: '', addClassSnippet: '',
           courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
         });
@@ -2014,7 +2062,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       valid.push({
         theme: theme.id, topic: topicId, itemId,
         qId: 'q-' + topicId + '-' + randSuffix(),
-        prompt, options, correctIndex, explanation, hashtags,
+        prompt, options, correctIndex, explanation, difficulty, hashtags,
         course: '', class: '', relatedCourseOverride: '',
         addCourseSnippet: '', addClassSnippet: '',
         courseInfo: { addCourseSnippet:'', addClassSnippet:'', newCourseData:null, newClassData:null },
@@ -2092,7 +2140,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     };
   }
   function courseCodeString(o){
-    return `// new theme — new top-level key in THEMES in game-data.js\nTHEMES['${o.id}'] = {\n  label:'${esc(o.label)}', icon:'${o.icon}',\n  blurb:'${esc(o.blurb)}',\n  topics:{}\n};`;
+    return `// new course — new top-level key in THEMES in game-data.js\nTHEMES['${o.id}'] = {\n  label:'${esc(o.label)}', icon:'${o.icon}',\n  blurb:'${esc(o.blurb)}',\n  topics:{}\n};`;
   }
   function renderCourse(){
     const o = buildCourseObject();
@@ -2106,7 +2154,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     if(!c_label.value.trim()){ toast('Give it a name first'); return; }
     const o = buildCourseObject();
     KNOWN_THEMES.push({ id:o.id, label:o.label });
-    pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new theme', data:o });
+    pushToQueue({ type:'course', title:o.label, code:courseCodeString(o), note:'new course', data:o });
     [i_theme, q_theme, csvitem_theme].forEach(sel=>fillThemeSelect(sel));
     refreshCsvItemFormSelects();
     renderStructureList();
@@ -2360,10 +2408,8 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   });
   addTopicCancelBtn.addEventListener('click', closeAddTopicBlock);
   function topicCodeString(o){
-    return `// new topic — add to TOPICS, then (empty) to THEMES.${o.theme}.topics in game-data.js\n`
-      + `'${o.topicId}': { label:'${esc(o.label)}', icon:'${o.icon}', color:'#c58bff' },\n\n`
-      + `// -> THEMES.${o.theme}.topics in game-data.js\n`
-      + `'${o.topicId}': { items:{} },`;
+    return `// new topic — add to THEMES.${o.theme}.topics in game-data.js (topics are specific to their course)\n`
+      + `'${o.topicId}': { label:'${esc(o.label)}', icon:'${o.icon}', color:'#c58bff', items:{} },`;
   }
   document.getElementById('addTopicSubmitBtn').addEventListener('click', ()=>{
     const label = newTopicLabelInput.value.trim();
@@ -2621,7 +2667,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     const questions = entries.filter(b=>b.type==='question');
     const courses = entries.filter(b=>b.type==='course');
     let out = header;
-    if(courses.length){ out += `// ---- New themes ----\n` + courses.map(c=>`// by ${c.contributorName}\n${c.code}`).join('\n\n') + '\n\n'; }
+    if(courses.length){ out += `// ---- New courses ----\n` + courses.map(c=>`// by ${c.contributorName}\n${c.code}`).join('\n\n') + '\n\n'; }
     if(items.length){ out += `// ---- New study guide items ----\n` + items.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(editItems.length){ out += `// ---- Edits to existing items ----\n` + editItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
     if(deleteItems.length){ out += `// ---- DELETIONS (items) ----\n` + deleteItems.map(i=>`// by ${i.contributorName}\n${i.code}`).join('\n\n') + '\n\n'; }
@@ -2645,7 +2691,8 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
 
   // ================= MAINTAINER: MERGE QUEUE -> game-data.js =================
   // Regenerates a complete, ready-to-paste game-data.js: everything the
-  // contributor pipeline can touch (COURSES, TOPICS, THEMES) gets rebuilt
+  // contributor pipeline can touch (COURSES, THEMES -- topics live inline
+  // under THEMES now, specific to their course) gets rebuilt
   // fresh from the currently-loaded game-data.js PLUS whatever's still in
   // the queue; everything else (GAME_CONFIG, LIFE_CONFIG, STAGES, header
   // comments, ...) is carried through unchanged from a template, since
@@ -2670,20 +2717,28 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
    SHAPE OVERVIEW
    ---------------
    COURSES        — real university courses (e.g. MEDS3002), each broken into
-                     Classes (individual lectures, e.g. "L14").
-   TOPICS         — the fixed topic taxonomy (genetics, immunology, ...).
-   THEMES         — Theme (e.g. "cancer") → Topic → study-guide Item. Each
-                     item can point at a COURSES entry via \`course\` + \`class\`,
-                     and carries its own \`questions\` array — the MCQs players
-                     get asked about that item. A question only needs its own
-                     \`course\`/\`class\` (or, rarely, a literal \`relatedCourse\`
-                     string) if it genuinely differs from its item's — most
-                     just inherit the item's.
-   STAGES         — Theme → ordered list of Runner-mode stages.
-   RUNNABLE_THEMES— which theme ids have a STAGES entry (playable in Runner
+                     Classes/lectures (individual lectures, e.g. "L14"). This
+                     is ALSO the top level of THEMES below now -- a course
+                     code like 'MEDS3002' is both a playable top-level group
+                     AND (via \`course\`/\`class\` on an item/question) a lecture
+                     citation, which is why an item's own course usually
+                     matches its top-level THEMES key but doesn't have to.
+   THEMES         — Course (e.g. "MEDS3002") → Topic → study-guide Item.
+                     Topics are specific to their course now -- each one
+                     carries its own \`label\`/\`icon\`/\`color\` inline instead of
+                     pointing at a shared taxonomy. Each item can point at a
+                     COURSES entry via \`course\` + \`class\`, and carries its own
+                     \`questions\` array — the MCQs players get asked about
+                     that item (each with its own \`difficulty\`, one of
+                     'easy'/'medium'/'hard', optional). A question only needs
+                     its own \`course\`/\`class\` (or, rarely, a literal
+                     \`relatedCourse\` string) if it genuinely differs from its
+                     item's — most just inherit the item's.
+   STAGES         — Course → ordered list of Runner-mode stages.
+   RUNNABLE_THEMES— which course ids have a STAGES entry (playable in Runner
                      mode vs. Study & Practice-only).
    GAME_CONFIG    — every tunable gameplay number.
-   LIFE_CONFIG    — per-theme label/icon for the "life" resource.
+   LIFE_CONFIG    — per-course label/icon for the "life" resource.
    COMPLETE_SCENARIO — text shown after the last stage.
    ============================================================================ */
 (function(){
@@ -2697,54 +2752,54 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
    courseDisplayString() in cancer-runner-group.html.
    ====================================================================== */
             `,
-    betweenCoursesTopics: `
-
-/* ======================================================================
-   TOPICS — the fixed taxonomy every question/item is filed under.
-   ====================================================================== */
-            `,
-    betweenTopicsThemes: `
+    betweenCoursesThemes: `
 
 /* ======================================================================
    GAME_CONFIG — every tunable number lives here in one place.
    ====================================================================== */
   const GAME_CONFIG = {
-    baseSpeed: 750,            // px/s at Stage I
-    speedRampPerStage: 20,     // added per stage index (0-based) — one-time bump on stage change
+    baseSpeed: 600,            // px/s at Stage I
+    speedRampPerStage: 40,     // added per stage index (0-based) — one-time bump on stage change
     speedRampPerSecond: 10,    // added continuously for every second survived — this is what makes it feel gradual
     maxSpeed: 1000,             // speed never exceeds this
     startingGlucose: 100,
     glucosePickupValue: 5,     // gained per life pickup collected
     wrongAnswerPenalty: 40,    // life lost per wrong MCQ answer
-    obstacleSpawnBaseMs: 650,  // topic-block spawn interval = base + random(0..rand)
-    obstacleSpawnRandMs: 300,
+    postAnswerPauseMs: 2000,   // brief freeze after clicking Continue, before the run resumes -- gives a beat to
+                               // get oriented instead of getting dropped straight back next to whatever piled up
+    obstacleSpawnBaseMs: 250,  // topic-block spawn interval = base + random(0..rand)
+    obstacleSpawnRandMs: 450,
     glucoseSpawnBaseMs: 550,   // life-pickup spawn interval = base + random(0..rand)
     glucoseSpawnRandMs: 300,
     initialObstacleDelayMs: 1200, // delay before the very first topic block spawns
     initialGlucoseDelayMs: 500,   // delay before the very first life pickup spawns
     bombDamage: 40,               // life lost when a bomb is hit (instant, no question)
-    bombSpawnBaseMs: 1000,        // bomb spawn interval — base + random(0..rand)
-    bombSpawnRandMs: 1000,
+    bombIcon: '💣',                // swap for 'icons/bomb.png' (or any path/URL -- see the ICONS comment
+                                   // in medsci-runner.html) to use your own image instead of the emoji
+    bombSpawnBaseMs: 500,        // bomb spawn interval — base + random(0..rand)
+    bombSpawnRandMs: 1300,
     scoreCorrectWeight: 50,    // Group Race ranking score = correct*this - incorrect*this + life*this + stageIndex*stageWeight
     scoreIncorrectWeight: 35,
     scoreLifeWeight: 1,
     stageWeight: 300,          // added per stage reached (stageIndex is 0-based, so Stage I contributes 0)
     streakBonusEvery: 3,       // award a bonus every Nth correct answer IN A ROW (resets to 0 on any wrong answer)
     streakBonusAmount: 10,     // life gained when a streak bonus triggers
+    streakBonusAppliesToLife: true, // set false to stop the streak bonus from also topping up life -- the life-award code below stays intact either way, this just gates it
+    streakBonusScoreAmount: 150, // flat score points awarded when a streak bonus triggers (on top of the usual correct/incorrect/life/stage weights)
   };
 
 /* ======================================================================
-   LIFE — the "health" resource is themed per Runner-playable theme. Change
+   LIFE — the "health" resource is themed per Runner-playable course. Change
    the label/icon here any time — every place it's shown (HUD, pickups,
    penalties, the bomb warning) reads from this automatically.
    ====================================================================== */
   const LIFE_CONFIG = {
-    cancer:       { label:'Glucose', icon:'🩸' },
-    biochemistry: { label:'ATP',     icon:'⚡' },
+    'MEDS3002': { label:'Glucose', icon:'🩸' },
+    'MEDS2003': { label:'ATP',     icon:'⚡' },
   };
 
 /* ======================================================================
-   THEMES — Theme -> Topic -> Item. Each item can carry "hashtags" (which
+   THEMES — Course -> Topic -> Item. Each item can carry "hashtags" (which
    cancer type / sub-area it belongs to, e.g. ['Leukemia']), course + class
    fields pointing into COURSES above (e.g. course:'MEDS3002', class:'L14'),
    and its own "questions" array — the MCQs players get asked when they hit
@@ -2757,15 +2812,15 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     afterThemes: `
 
 /* ======================================================================
-   STAGES — per theme. Each stage has correct-answer requirements (reset
+   STAGES — per course. Each stage has correct-answer requirements (reset
    each stage) and a narrative shown on the transition screen before that
    stage begins.
    ====================================================================== */
   const STAGES = {
-    cancer: [
+    'MEDS3002': [
       /* "scenario" is patient-facing narrative — this is also where a real
          case study can be dropped in later (per stage). */
-      { n:1, roman:'I', requirements:{ genetics:10 },
+      { n:1, roman:'I', requirements:{ genetics:3, immunology:3, pharmacology:3, oncology:3 },
         scenario:"Patient presents with fatigue and unexplained bruising. Bloodwork shows an abnormal white cell count — the care team orders genetic testing to find out exactly what's driving it." },
       { n:2, roman:'II', requirements:{ genetics:5, immunology:10 },
         scenario:"The genetic picture is in. Now the patient's own immune system is in the fight — how well it can recognise and respond to the disease will shape what comes next." },
@@ -2774,10 +2829,10 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       { n:4, roman:'IV', requirements:{ genetics:3, immunology:5, pharmacology:7, oncology:10 },
         scenario:"The patient is now deep into treatment. Staging, complications, and what happens next define the road ahead." },
     ],
-    // Deliberately short right now — biochemistry only has a handful of
+    // Deliberately short right now — MEDS2003 only has a handful of
     // seed questions so far. Expand requirements as you add more content
     // (see the contributor tool or dev notes).
-    biochemistry: [
+    'MEDS2003': [
       { n:1, roman:'I', requirements:{ metabolism:2 },
         scenario:"You're tracing how a cell fuels itself — starting with how it handles glucose and energy production." },
       { n:2, roman:'II', requirements:{ metabolism:1, molecularBiology:1 },
@@ -2786,11 +2841,11 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   };
   const COMPLETE_SCENARIO = "You've worked through the full case — review your answers below, or start again to reinforce what you've learned. (Real case studies coming soon.)";
 
-  const RUNNABLE_THEMES = ['cancer', 'biochemistry']; // themes with a matching STAGES config, playable in Runner mode
+  const RUNNABLE_THEMES = ['MEDS3002', 'MEDS2003']; // course ids with a matching STAGES config, playable in Runner mode
 
 
   window.RUNNER_DATA = {
-    COURSES, TOPICS, GAME_CONFIG, LIFE_CONFIG, THEMES,
+    COURSES, GAME_CONFIG, LIFE_CONFIG, THEMES,
     STAGES, COMPLETE_SCENARIO, RUNNABLE_THEMES,
   };
 
@@ -2813,17 +2868,14 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       return startIdx + m.index + m[0].length;
     }
     const coursesDecl = fullText.indexOf('const COURSES = {');
-    const topicsDecl = fullText.indexOf('const TOPICS = {');
     const themesDecl = fullText.indexOf('const THEMES = {');
-    if(coursesDecl<0||topicsDecl<0||themesDecl<0) return null;
+    if(coursesDecl<0||themesDecl<0) return null;
     const coursesEnd = findDeclEnd(coursesDecl);
-    const topicsEnd = findDeclEnd(topicsDecl);
     const themesEnd = findDeclEnd(themesDecl);
-    if(coursesEnd<0||topicsEnd<0||themesEnd<0) return null;
+    if(coursesEnd<0||themesEnd<0) return null;
     return {
       before: fullText.slice(0, coursesDecl),
-      betweenCoursesTopics: fullText.slice(coursesEnd, topicsDecl),
-      betweenTopicsThemes: fullText.slice(topicsEnd, themesDecl),
+      betweenCoursesThemes: fullText.slice(coursesEnd, themesDecl),
       afterThemes: fullText.slice(themesEnd),
     };
   }
@@ -2871,16 +2923,17 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   }
   function questionDataObject(o){
     const out = { id:o.qId, prompt:o.prompt, options:o.options, correctIndex:o.correctIndex, explanation:o.explanation };
+    if(o.difficulty && o.difficulty!=='medium') out.difficulty = o.difficulty;
     if(o.hashtags && o.hashtags.length) out.hashtags = o.hashtags;
     if(o.relatedCourseOverride) out.relatedCourse = o.relatedCourseOverride;
     else if(o.course){ out.course = o.course; if(o.class) out.class = o.class; }
     return out;
   }
-  // Applies one queue entry's structured data onto cloned COURSES/TOPICS/THEMES.
+  // Applies one queue entry's structured data onto cloned COURSES/THEMES.
   // Reads only entry.data (never the pre-formatted text) so this stays
   // correct however many entries have come and gone -- deleting an entry
   // from the queue before merging means it's simply never applied here.
-  function applyEntry(entry, courses, topics, themes){
+  function applyEntry(entry, courses, themes){
     const o = entry.data;
     if(!o) return; // an entry added before this feature existed has no structured data -- skip it, its text is still visible in the queue for manual handling
     if(entry.type === 'delete-item'){
@@ -2910,19 +2963,22 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
       return;
     }
     if(entry.type === 'topic'){
-      topics[o.topicId] = topics[o.topicId] || { label:o.label, icon:o.icon, color:'#c58bff' };
+      // Topics are specific to their course -- label/icon/color live
+      // directly on the topic entry under that course now, not in a
+      // separate shared registry.
       const th = themes[o.theme];
-      if(th) th.topics[o.topicId] = th.topics[o.topicId] || { items:{} };
+      if(th) th.topics[o.topicId] = th.topics[o.topicId] || { label:o.label, icon:o.icon, color:'#c58bff', items:{} };
       return;
     }
     if(entry.type === 'item' || entry.type === 'edit-item'){
       applyCourseInfo(o.courseInfo);
       const th = themes[o.theme];
       if(!th) return; // references a theme that doesn't exist even after applying earlier entries -- leave it for manual review
-      if(o.usingNewTopic && !topics[o.topicId]){
-        topics[o.topicId] = { label:o.newTopicLabel||o.topicId, icon:o.newTopicIcon||'📋', color:'#c58bff' };
+      if(o.usingNewTopic){
+        th.topics[o.topicId] = th.topics[o.topicId] || { label:o.newTopicLabel||o.topicId, icon:o.newTopicIcon||'📋', color:'#c58bff', items:{} };
+      } else {
+        th.topics[o.topicId] = th.topics[o.topicId] || { items:{} };
       }
-      th.topics[o.topicId] = th.topics[o.topicId] || { items:{} };
       const data = itemDataObject(o);
       if(entry.type === 'edit-item') data.questions = o.existingQuestions || [];
       else if(th.topics[o.topicId].items[o.itemId]) data.questions = th.topics[o.topicId].items[o.itemId].questions || [];
@@ -2944,7 +3000,6 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
   function generateMergedFile(){
     const template = loadTemplate();
     const courses = deepClone(RD.COURSES);
-    const topics = deepClone(RD.TOPICS);
     const themes = deepClone(RD.THEMES);
     const entries = Object.entries(batch)
       .map(([key, entry])=>({ key, ...entry }))
@@ -2953,15 +3008,13 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     const mergedKeys = [];
     entries.forEach(entry=>{
       if(!entry.data){ skippedNoData++; return; }
-      applyEntry(entry, courses, topics, themes);
+      applyEntry(entry, courses, themes);
       appliedCount++;
       mergedKeys.push(entry.key);
     });
     const coursesText = serializeTopLevelConst('COURSES', courses);
-    const topicsText = serializeTopLevelConst('TOPICS', topics);
     const themesText = serializeTopLevelConst('THEMES', themes);
-    const full = template.before + coursesText + template.betweenCoursesTopics
-      + topicsText + template.betweenTopicsThemes + themesText + template.afterThemes;
+    const full = template.before + coursesText + template.betweenCoursesThemes + themesText + template.afterThemes;
     // Never hand back text we haven't verified actually parses -- this is
     // the one output in this whole tool that goes straight into the file
     // everyone's game loads, so a silent syntax error here is the worst
@@ -3023,7 +3076,7 @@ Cancer,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;,BTK,J
     const templateStatus = document.getElementById('templateStatus');
     const parts = extractTemplateParts(templateInput.value);
     if(!parts){
-      templateStatus.textContent = '⚠️ Could not find COURSES/TOPICS/THEMES in that text -- paste the whole game-data.js file, unedited.';
+      templateStatus.textContent = '⚠️ Could not find COURSES/THEMES in that text -- paste the whole game-data.js file, unedited.';
       templateStatus.style.color = 'var(--danger)';
       return;
     }

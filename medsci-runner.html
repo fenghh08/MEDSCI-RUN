@@ -35,7 +35,7 @@
   @keyframes bombFlash{ 0%{ opacity:1; } 100%{ opacity:0; } }
   canvas{ display:block; width:100%; height:100%; background:var(--bg-1); }
 
-  #hud{ position:absolute;top:0;left:0;right:0; display:flex;justify-content:space-between;align-items:flex-start;
+  #hud{ position:absolute;top:0;left:0;right:0; display:none;justify-content:space-between;align-items:flex-start;
     padding:14px 16px; pointer-events:none; z-index:22; }
   #hudLeft{ display:flex; gap:8px; align-items:flex-start; }
   #hudRightCol{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
@@ -51,7 +51,7 @@
     border-radius:8px; width:34px;height:34px; font-size:15px; cursor:pointer; }
 
   .screen{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:safe center;
-    background:rgba(8,2,5,.92); text-align:center; padding:22px; z-index:10; overflow-y:auto; }
+    background:var(--bg-0); text-align:center; padding:22px; z-index:10; overflow-y:auto; }
   .screen.active{ display:flex; }
   .screen h2{ font-family:var(--display); font-style:italic; font-weight:400; font-size:30px; margin:0 0 6px; }
   .screen p.desc{ color:var(--hud-dim); max-width:480px; line-height:1.55; font-size:13px; margin:0 auto 16px; text-align:center; }
@@ -108,14 +108,15 @@
   .item-card .ic-name{ font-size:12.5px; font-weight:700; margin-bottom:2px; }
   .item-card .ic-hint{ font-size:9.5px; color:var(--hud-dim); }
 
-  #infoModal, #manualModal, #mcqModal, #scenarioOverlay, #summaryModal{
+  #infoModal, #manualModal, #mcqModal, #scenarioOverlay, #summaryModal, #scoreInfoModal{
     position:absolute; inset:0; display:none; align-items:center; justify-content:safe center;
     background:rgba(4,1,3,.9); z-index:20; padding:18px; }
-  #infoModal.active, #manualModal.active, #mcqModal.active, #scenarioOverlay.active, #summaryModal.active{ display:flex; }
+  #infoModal.active, #manualModal.active, #mcqModal.active, #scenarioOverlay.active, #summaryModal.active, #scoreInfoModal.active{ display:flex; }
   /* Extra top padding so the question card clears the HUD (now floating
      above the modal backdrop at z-index:22 -- see #hud) instead of the
      glucose/score/leaderboard boxes overlapping its top edge. */
   #mcqModal{ padding-top:104px; align-items:flex-start; }
+  #scoreInfoModal{ padding-top:104px; align-items:flex-start; }
   .panel-card{ background:var(--panel); border:1px solid var(--panel-line); border-radius:16px; max-width:520px;
     width:100%; max-height:92%; overflow-y:auto; padding:22px; text-align:left; position:relative; }
   .panel-close{ position:absolute; top:12px; right:12px; background:none; border:none; color:var(--hud-dim);
@@ -221,7 +222,7 @@
           <div class="topic-chips" id="topicChips"></div>
         </div>
         <div class="hud-block" id="scoreHudBlock" style="display:none;">
-          <div class="hud-label">Score</div>
+          <div class="hud-label" style="color:var(--membrane);font-size:12px;font-weight:700;letter-spacing:.14em;">★ SCORE</div>
           <div class="hud-value" id="scoreVal">0</div>
         </div>
       </div>
@@ -238,10 +239,11 @@
       </div>
     </div>
     <div id="mpEliminationToast"></div>
-    <div id="resumeIndicator" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:23;
-      background:rgba(13,3,8,.88);backdrop-filter:blur(4px);border:1px solid var(--membrane);border-radius:12px;
-      padding:10px 20px;font-size:14px;color:var(--hud-ink);text-align:center;pointer-events:none;white-space:nowrap;">
-      <span id="resumeIndicatorText">▶ Resuming…</span>
+    <div id="resumeIndicator" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;
+      flex-direction:column;gap:6px;z-index:23;pointer-events:none;">
+      <div id="resumeIndicatorNum" style="font-family:var(--display);font-style:italic;font-size:110px;line-height:1;
+        color:var(--membrane);text-shadow:0 0 40px rgba(255,93,143,.6);"></div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--hud-dim);">Resuming</div>
     </div>
     <div id="stallWarning" style="display:none;position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:6;
       background:rgba(13,3,8,.85);backdrop-filter:blur(4px);border:1px solid var(--danger);border-radius:10px;
@@ -255,7 +257,7 @@
         <div class="btn-row" style="margin-bottom:16px;">
           <button class="secondary" id="manualBtn">📖 How to play</button>
           <button class="secondary" id="studyGuideBtnMenu">📚 Study guide</button>
-          <button class="secondary" id="courseListBtnMenu">🎓 Browse by course</button>
+          <button class="secondary" id="courseListBtnMenu">🎓 Browse by lecture</button>
         </div>
         <div class="cancer-grid" id="cancerGrid"></div>
         <button class="pick-card" id="practiceModeCard" style="margin:10px auto 0;max-width:460px;display:block;text-align:center;">
@@ -281,12 +283,12 @@
       </div>
       <div id="practiceSetupView" style="display:none;">
         <h2>Study &amp; Practice</h2>
-        <p class="desc">Filter by theme, topic, and course — then browse the study guide or start a practice quiz. Untimed by default, no glucose, no stages, just questions — turn on a timer below if you want the extra pressure.</p>
-        <div class="p-sub" style="margin-top:0;">Theme</div>
+        <p class="desc">Filter by course, topic, and lecture — then browse the study guide or start a practice quiz. Untimed by default, no glucose, no stages, just questions — turn on a timer below if you want the extra pressure.</p>
+        <div class="p-sub" style="margin-top:0;">Course</div>
         <div class="cancer-grid" id="practiceThemeGrid" style="max-width:460px;margin-bottom:14px;"></div>
         <div class="p-sub">Topics <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave all unchecked for every topic)</span></div>
         <div class="checks" id="practiceTopicChecks" style="margin-bottom:16px;"></div>
-        <div class="p-sub">Course</div>
+        <div class="p-sub">Lecture</div>
         <select id="practiceCourseSelect" style="max-width:420px;margin-bottom:18px;"></select>
         <div class="p-sub">Questions this session</div>
         <select id="practiceLimitSelect" style="max-width:420px;margin-bottom:18px;">
@@ -307,10 +309,10 @@
       </div>
       <div id="customSetupView" style="display:none;">
         <h2>Custom run</h2>
-        <p class="desc">Pick any mix of Theme, Topic, and Course — leave a whole group unchecked to include everything in it. Since a mixed run doesn't have one storyline, stages are generic and life just shows as "Life" instead of a themed resource.</p>
+        <p class="desc">Pick any mix of Course, Topic, and Lecture — leave a whole group unchecked to include everything in it. Since a mixed run doesn't have one storyline, stages are generic and life just shows as "Life" instead of a themed resource.</p>
         <div class="filter-section">
           <div class="filter-section-head">
-            <span class="p-sub">Theme <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every theme)</span></span>
+            <span class="p-sub">Course <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every course)</span></span>
             <button type="button" class="filter-select-toggle" data-clear-group="customThemeChecks">Clear</button>
           </div>
           <div class="checks" id="customThemeChecks"></div>
@@ -324,7 +326,7 @@
         </div>
         <div class="filter-section">
           <div class="filter-section-head">
-            <span class="p-sub">Course <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every course)</span></span>
+            <span class="p-sub">Lecture <span style="color:var(--hud-dim);font-weight:400;text-transform:none;letter-spacing:0;">(leave unchecked for every lecture)</span></span>
             <button type="button" class="filter-select-toggle" data-clear-group="customCourseChecks">Clear</button>
           </div>
           <div class="checks" id="customCourseChecks"></div>
@@ -342,7 +344,7 @@
           <span class="fl-label">Your name</span>
           <input type="text" id="mpNameInput" placeholder="e.g. Eason" style="width:100%;font-family:var(--mono);font-size:13px;background:var(--bg-1);color:var(--hud-ink);border:1px solid var(--panel-line);border-radius:8px;padding:8px 10px;">
         </label>
-        <div class="p-sub" style="margin-top:0;">Theme (host's choice — only matters when hosting)</div>
+        <div class="p-sub" style="margin-top:0;">Course (host's choice — only matters when hosting)</div>
         <div class="cancer-grid" id="mpThemeGrid" style="max-width:400px;margin:0 auto 16px;"></div>
         <div class="btn-row">
           <button class="secondary" id="mpBackBtn">← Back</button>
@@ -414,22 +416,36 @@
         <div class="scenario-text" id="scenarioText"></div>
         <div class="p-sub" style="margin-top:0;">To clear this stage</div>
         <div class="req-list" id="scenarioReqs"></div>
+        <div id="scenarioHint" style="display:none;font-size:11.5px;color:var(--hud-dim);margin-top:8px;line-height:1.5;"></div>
         <div id="scenarioScoreLegend" style="display:none;margin-top:14px;">
           <div class="p-sub" style="margin-top:0;">Scoring</div>
           <div class="req-list" id="scenarioScoreChips"></div>
         </div>
-        <button class="primary" id="scenarioContinueBtn">Continue</button>
+        <div class="btn-row" style="margin-top:16px;justify-content:center;">
+          <button class="secondary" id="scenarioQuitBtn" style="display:none;">🏠 Quit to menu</button>
+          <button class="primary" id="scenarioContinueBtn">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCORE INFO (opened by tapping the Score HUD block) -->
+    <div id="scoreInfoModal">
+      <div class="panel-card" style="max-width:400px;">
+        <button class="panel-close" id="scoreInfoClose">✕</button>
+        <div class="p-name">How scoring works</div>
+        <div class="req-list" id="scoreInfoChips"></div>
+        <p class="p-desc" style="margin-top:12px;">Highest score wins. In Group Race, final ranking is always by score — not by who finishes first.</p>
       </div>
     </div>
 
     <!-- MCQ MODAL -->
     <div id="mcqModal">
       <div class="panel-card" style="max-width:520px;">
-        <div id="mcqPracticeBar" style="display:none;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px;color:var(--hud-dim);">
+        <div id="mcqPracticeBar" style="display:none;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:11px;color:var(--hud-dim);">
           <span id="mcqPracticeProgress"></span>
-          <span class="sr-link" id="mcqEndPracticeBtn">End practice</span>
+          <button type="button" class="secondary" id="mcqEndPracticeBtn" style="font-size:11px;padding:4px 12px;">End practice</button>
         </div>
-        <div class="mcq-cat" id="mcqCat" style="color:var(--hud-dim);">TOPIC</div>
+        <div class="mcq-cat" id="mcqCat" style="color:var(--hud-dim);display:flex;justify-content:space-between;align-items:center;"><span id="mcqCatLabel">TOPIC</span><span id="mcqDifficulty"></span></div>
         <div id="mcqTimerWrap" style="height:4px;background:var(--panel-line);border-radius:2px;margin:6px 0 10px;overflow:hidden;">
           <div id="mcqTimerBar" style="height:100%;width:100%;background:var(--membrane);transition:width 1s linear, background 0.3s;"></div>
         </div>
@@ -473,16 +489,16 @@
         <button class="panel-close" id="guideClose">✕</button>
         <h3 class="p-name" style="margin-bottom:4px;" id="guideTitle">Study guide</h3>
         <p class="p-desc" id="guideBlurb" style="margin-top:0;"></p>
-        <button class="secondary" id="courseListBtnGuide" style="margin-bottom:10px;">🎓 Browse by course</button>
+        <button class="secondary" id="courseListBtnGuide" style="margin-bottom:10px;">🎓 Browse by lecture</button>
         <div id="guideTabsWrap">
-          <div class="tabs-label" id="guideThemeLabel" style="display:none;">Theme</div>
+          <div class="tabs-label" id="guideThemeLabel" style="display:none;">Course</div>
           <div class="topic-tabs" id="guideThemeTabs" style="margin-bottom:8px;"></div>
           <div class="tabs-label">Topic</div>
           <div class="topic-tabs" id="guideTopicTabs"></div>
         </div>
         <div id="guideCourseHeader" style="display:none;margin-bottom:10px;">
           <button class="secondary" id="courseBackBtn" style="margin-bottom:8px;">← Back to topics</button>
-          <div class="p-sub" style="margin-top:0;" id="courseHeaderText">Course</div>
+          <div class="p-sub" style="margin-top:0;" id="courseHeaderText">Lecture</div>
         </div>
         <div id="guideListHeader" style="display:none;margin-bottom:6px;">
           <button class="secondary" id="guideListBackBtn">← Back to guide</button>
@@ -630,6 +646,8 @@
   let initializeApp, getDatabase, ref, set, get, fbUpdate, onValue, off, runTransaction, onDisconnect, remove;
   let fbApp, fbdb;
   let firebaseReady = false;
+  let serverTimeOffset = 0;
+  function serverNow(){ return Date.now() + serverTimeOffset; }
 
   const firebaseConfig = {
     apiKey: "AIzaSyBO3Ztpzg2tCTLapxdxmy-vBh0uOaEHnus",
@@ -649,6 +667,16 @@
       fbApp = initializeApp(firebaseConfig);
       fbdb = getDatabase(fbApp);
       firebaseReady = true;
+      // Group Race's countdown is timed off an absolute clock (countdownAt),
+      // written once by the host and read by everyone -- if each device
+      // just used its own Date.now(), anyone whose system clock is off
+      // (wrong timezone, drift, whatever) sees a wildly wrong countdown
+      // (this is what caused some players to see it start from ~400s).
+      // Firebase's special .info/serverTimeOffset path gives the gap
+      // between THIS device's clock and the database server's, so
+      // serverNow() below is consistent across every device regardless of
+      // their local clock.
+      onValue(ref(fbdb, '.info/serverTimeOffset'), snap=>{ serverTimeOffset = snap.val() || 0; });
     } catch(err){
       console.warn('[Runner Game] Group Race is unavailable — could not reach the Firebase SDK (no internet, or gstatic.com is blocked on this network). Solo Runner, Study & Practice, and Custom run are unaffected.', err);
       firebaseReady = false;
@@ -662,9 +690,22 @@
    this file reads exactly as it always did.
    ====================================================================== */
   const {
-    COURSES, TOPICS, GAME_CONFIG, LIFE_CONFIG, THEMES,
+    COURSES, GAME_CONFIG, LIFE_CONFIG, THEMES,
     STAGES, COMPLETE_SCENARIO, RUNNABLE_THEMES,
   } = window.RUNNER_DATA;
+
+  // Topics are authored per-course now (each carries its own label/icon/
+  // color inline under THEMES[courseId].topics[topicId]) rather than a
+  // shared taxonomy, since a topic belongs to the specific course it's
+  // filed under. This flat index is built once here purely so every
+  // TOPICS[topicId] lookup elsewhere in this file keeps working unchanged
+  // -- it's derived, not authored (see game-data.js).
+  const TOPICS = {};
+  Object.values(THEMES).forEach(course=>{
+    Object.entries(course.topics).forEach(([topicId, t])=>{
+      TOPICS[topicId] = { label:t.label, icon:t.icon, color:t.color };
+    });
+  });
 
   // Items/questions store a compact course:'MEDS3002', class:'L14' pair
   // instead of writing the whole string out by hand. This builds the
@@ -797,12 +838,23 @@
   const PLAYER_X = 150;
 
   // ---------- DOM refs ----------
+  const hud = document.getElementById('hud');
   const lifeLabel = document.getElementById('lifeLabel');
   const glucoseVal = document.getElementById('glucoseVal');
   const stageLine = document.getElementById('stageLine');
   const topicChips = document.getElementById('topicChips');
   const scoreHudBlock = document.getElementById('scoreHudBlock');
   const scoreVal = document.getElementById('scoreVal');
+  const scoreInfoModal = document.getElementById('scoreInfoModal');
+  const scoreInfoChips = document.getElementById('scoreInfoChips');
+  const scoreInfoClose = document.getElementById('scoreInfoClose');
+  scoreHudBlock.style.cursor = 'pointer';
+  scoreHudBlock.title = 'Tap to see how scoring works';
+  scoreHudBlock.addEventListener('click', ()=>{
+    scoreInfoChips.innerHTML = scoreLegendChipsHTML();
+    scoreInfoModal.classList.add('active');
+  });
+  scoreInfoClose.addEventListener('click', ()=> scoreInfoModal.classList.remove('active'));
   const pauseBtn = document.getElementById('pauseBtn');
   const guideBtn = document.getElementById('guideBtn');
 
@@ -863,12 +915,16 @@
   const scenarioStageLabel = document.getElementById('scenarioStageLabel');
   const scenarioText = document.getElementById('scenarioText');
   const scenarioReqs = document.getElementById('scenarioReqs');
+  const scenarioHint = document.getElementById('scenarioHint');
   const scenarioScoreLegend = document.getElementById('scenarioScoreLegend');
   const scenarioScoreChips = document.getElementById('scenarioScoreChips');
+  const scenarioQuitBtn = document.getElementById('scenarioQuitBtn');
   const scenarioContinueBtn = document.getElementById('scenarioContinueBtn');
 
   const mcqModal = document.getElementById('mcqModal');
   const mcqCat = document.getElementById('mcqCat');
+  const mcqCatLabel = document.getElementById('mcqCatLabel');
+  const mcqDifficulty = document.getElementById('mcqDifficulty');
   const mcqTimerBar = document.getElementById('mcqTimerBar');
   const mcqTimerWrap = document.getElementById('mcqTimerWrap');
   const mcqPrompt = document.getElementById('mcqPrompt');
@@ -967,14 +1023,26 @@
 
   const questionQueues = {}; // 'cancer|topic' -> shuffled array
   let pendingEntity = null;
-  let activeQuestionTheme = 'cancer';
+  let activeQuestionTheme = RUNNABLE_THEMES[0];
   let quizMode = 'runner'; // 'runner' | 'practice'
   let practiceQueue = [];
   let practiceCorrect = 0, practiceAnswered = 0;
   let practiceTheme = null;
   let pendingQuestion = null;
   let mcqTimerInterval = null;
-  const MCQ_TIME_LIMIT = 45; // seconds -- run out and it counts as a wrong answer, same as picking a real option incorrectly
+  const MCQ_TIME_LIMIT = 45; // seconds baseline -- run out and it counts as a wrong answer, same as an incorrect pick.
+                              // Longer prompts/options get extra time on top of this (see mcqTimeLimitFor below).
+  let mcqTimeLimit = MCQ_TIME_LIMIT; // this question's actual limit, recomputed by presentQuestion each time
+  // Reading speed doesn't scale with question length by default, so a
+  // dense multi-line stem with long options was getting the exact same
+  // 45s as a one-line prompt. Adds a second per ~11 extra characters
+  // beyond a "normal" question's length, capped so it can't run away.
+  function mcqTimeLimitFor(q){
+    const totalChars = (q.prompt||'').length + (q.options||[]).reduce((n,o)=>n+o.length,0);
+    const BASE_CHARS = 220, CHARS_PER_EXTRA_SEC = 11, MAX_EXTRA_SECONDS = 35;
+    const extra = Math.min(MAX_EXTRA_SECONDS, Math.max(0, Math.ceil((totalChars-BASE_CHARS)/CHARS_PER_EXTRA_SEC)));
+    return MCQ_TIME_LIMIT + extra;
+  }
   let mcqAnswered = false;
   let guideJumpTopic = null;
 
@@ -1225,6 +1293,7 @@
     activeQuestionTheme = practiceSelectedTheme;
     quizMode = 'practice';
     screenState = 'mcq';
+    syncHudVisibility();
     landingScreen.classList.remove('active');
     advancePractice();
   });
@@ -1233,6 +1302,7 @@
       mcqModal.classList.remove('active');
       quizMode = 'runner';
       screenState = 'menu';
+      syncHudVisibility();
       showScreen('landing');
       landingScreen.classList.add('active');
       cancerPickView.style.display = 'block';
@@ -1251,6 +1321,7 @@
     mcqModal.classList.remove('active');
     quizMode = 'runner';
     screenState = 'menu';
+    syncHudVisibility();
     showScreen('landing');
     landingScreen.classList.add('active');
     cancerPickView.style.display = 'block';
@@ -1278,6 +1349,25 @@
     Object.keys(questionQueues).forEach(k=>delete questionQueues[k]);
     updateGlucoseUI();
   }
+  // Whole HUD (glucose/score/leaderboard) only ever shows while actually
+  // running or mid-question in Runner/Group Race/Custom -- not on the
+  // stage-intro/transition screens, menu, pause, or game-over. Hidden
+  // outright rather than just sitting behind another overlay, so nothing
+  // peeks through a semi-opaque screen underneath.
+  function syncHudVisibility(){
+    const inRun = ['running','resuming'].includes(screenState)
+      || (screenState==='mcq' && quizMode==='runner');
+    hud.style.display = inRun ? 'flex' : 'none';
+  }
+  // Shared by the Stage I intro screen's one-time legend and the "tap the
+  // score to see how it works" popup, so the two never drift out of sync.
+  function scoreLegendChipsHTML(){
+    return `
+      <span class="req-chip" style="color:var(--good);border-color:var(--good)77">✅ Correct +${GAME_CONFIG.scoreCorrectWeight}</span>
+      <span class="req-chip" style="color:var(--danger);border-color:var(--danger)77">❌ Wrong −${GAME_CONFIG.scoreIncorrectWeight}</span>
+      <span class="req-chip" style="color:#ffd54d;border-color:#ffd54d77">🔥 Streak bonus +${GAME_CONFIG.streakBonusScoreAmount}</span>
+      <span class="req-chip" style="color:var(--membrane);border-color:var(--membrane)77">🏁 Stage clear +${GAME_CONFIG.stageWeight}</span>`;
+  }
   function updateScoreHUD(){
     if(mp.active || quizMode!=='runner'){ scoreHudBlock.style.display = 'none'; return; }
     scoreHudBlock.style.display = 'block';
@@ -1285,7 +1375,7 @@
   }
   function updateGlucoseUI(){
     lifeLabel.textContent = lifeCfg().label;
-    glucoseVal.textContent = Math.max(0, Math.round(glucose));
+    glucoseVal.innerHTML = `${iconHTML(lifeCfg().icon,20)} × ${Math.max(0, Math.round(glucose))}`;
     glucoseVal.style.color = glucose < 20 ? 'var(--danger)' : 'var(--hud-ink)';
     updateScoreHUD();
     if(mp.active) mpSyncMyState();
@@ -1314,6 +1404,7 @@
   }
   function showStageScenario(idx, isStart){
     screenState = 'scenario';
+    syncHudVisibility();
     if(!isStart) SoundFX.stageComplete();
     const st = currentStages()[idx];
     const c = currentThemeMeta();
@@ -1327,14 +1418,25 @@
     // One-time, minimal scoring explainer -- shown only ahead of Stage I so
     // it's seen once per run without cluttering every later stage screen.
     if(isStart && idx===0 && !mp.active){
-      scenarioScoreChips.innerHTML = `
-        <span class="req-chip" style="color:var(--good);border-color:var(--good)77">✅ Correct +${GAME_CONFIG.scoreCorrectWeight}</span>
-        <span class="req-chip" style="color:var(--danger);border-color:var(--danger)77">❌ Wrong −${GAME_CONFIG.scoreIncorrectWeight}</span>
-        <span class="req-chip" style="color:#ffd54d;border-color:#ffd54d77">🔥 Streak bonus +${GAME_CONFIG.streakBonusScoreAmount}</span>
-        <span class="req-chip" style="color:var(--membrane);border-color:var(--membrane)77">🏁 Stage clear +${GAME_CONFIG.stageWeight}</span>`;
+      scenarioScoreChips.innerHTML = scoreLegendChipsHTML();
       scenarioScoreLegend.style.display = 'block';
     } else {
       scenarioScoreLegend.style.display = 'none';
+    }
+    // Same one-time treatment for the "how do I actually clear this"
+    // hint, and for offering an out before they've committed to playing.
+    if(isStart && idx===0){
+      scenarioHint.textContent = `Answer questions correctly to fill each counter above — clear every one to move on to the next stage.`;
+      scenarioHint.style.display = 'block';
+      scenarioQuitBtn.style.display = 'inline-block';
+      scenarioQuitBtn.onclick = ()=>{
+        scenarioOverlay.classList.remove('active');
+        if(mp.active) mpTeardown();
+        quitToMenu();
+      };
+    } else {
+      scenarioHint.style.display = 'none';
+      scenarioQuitBtn.style.display = 'none';
     }
     scenarioOverlay.classList.add('active');
     scenarioContinueBtn.onclick = ()=>{
@@ -1347,6 +1449,7 @@
   }
   function resumeIntoRunning(){
     screenState = 'running';
+    syncHudVisibility();
     [landingScreen, pauseScreen, overScreen].forEach(s=>s.classList.remove('active'));
     lastT = performance.now();
     requestAnimationFrame(loop);
@@ -1354,6 +1457,7 @@
   function pauseGame(){
     if(screenState!=='running') return;
     screenState = 'paused';
+    syncHudVisibility();
     pauseBtn.textContent = '▶';
     pauseStatus.textContent = `Stage ${currentStages()[stageIndex].roman} · Glucose ${Math.round(glucose)}`;
     showScreen('paused');
@@ -1361,6 +1465,7 @@
   function resumeGame(){
     if(screenState!=='paused') return;
     screenState = 'running';
+    syncHudVisibility();
     pauseBtn.textContent = '⏸';
     pauseScreen.classList.remove('active');
     lastT = performance.now();
@@ -1376,6 +1481,7 @@
       return;
     }
     screenState = 'over';
+    syncHudVisibility();
     mpSetOverButtons('solo');
     const life = lifeCfg().label;
     const finalScore = mpScore({ correctCount:myCorrectCount, incorrectCount:myIncorrectCount, glucose:Math.max(0,glucose), stageIndex, bonusScore:myBonusScore });
@@ -1395,12 +1501,16 @@
   }
   function mpSetOverButtons(mode){
     // 'solo': normal single-player over-screen buttons.
-    // 'waiting': your race is done but the match isn't resolved yet — no
-    //   restart/quit, since either would abandon the match mid-race.
+    // 'waiting': your race is done but the match isn't resolved yet.
+    //   "Play again" stays hidden (restarting mid-race for everyone else
+    //   doesn't make sense), but leaving is still allowed -- relabelled so
+    //   it's clear it means walking away before the result is in, not the
+    //   normal quit.
     // 'final': match is fully resolved — buttons go back to Group Race setup or home.
     if(mode==='waiting'){
       againBtn.style.display = 'none';
-      quitFromOverBtn.style.display = 'none';
+      quitFromOverBtn.style.display = 'inline-block';
+      quitFromOverBtn.innerHTML = '🚪 Leave without waiting';
     } else if(mode==='final'){
       againBtn.style.display = 'inline-block';
       quitFromOverBtn.style.display = 'inline-block';
@@ -1435,6 +1545,7 @@
   pauseBtn.addEventListener('click', togglePause);
   function quitToMenu(){
     screenState = 'menu';
+    syncHudVisibility();
     briefView.style.display = 'none';
     practiceSetupView.style.display = 'none';
     mpSetupView.style.display = 'none';
@@ -1480,6 +1591,7 @@
     if(infoModal.classList.contains('active')){ if(e.key==='Escape') guideClose.click(); return; }
     if(manualModal.classList.contains('active')){ if(e.key==='Escape') manualClose.click(); return; }
     if(summaryModal.classList.contains('active')){ if(e.key==='Escape') summaryClose.click(); return; }
+    if(scoreInfoModal.classList.contains('active')){ if(e.key==='Escape') scoreInfoClose.click(); return; }
     if(['ArrowUp','w','W'].includes(e.key)) setLane(-1);
     if(['ArrowDown','s','S'].includes(e.key)) setLane(1);
     if(e.key==='p' || e.key==='P' || e.key==='Escape') togglePause();
@@ -1517,7 +1629,7 @@
   }
   function startMcqTimer(){
     clearMcqTimer();
-    let secondsLeft = MCQ_TIME_LIMIT;
+    let secondsLeft = mcqTimeLimit;
     mcqTimerBar.style.transition = 'none';
     mcqTimerBar.style.width = '100%';
     mcqTimerBar.style.background = 'var(--membrane)';
@@ -1525,7 +1637,7 @@
     mcqTimerBar.style.transition = 'width 1s linear, background 0.3s';
     mcqTimerInterval = setInterval(()=>{
       secondsLeft--;
-      const pct = Math.max(0, (secondsLeft/MCQ_TIME_LIMIT)*100);
+      const pct = Math.max(0, (secondsLeft/mcqTimeLimit)*100);
       mcqTimerBar.style.width = pct + '%';
       if(secondsLeft <= 10) mcqTimerBar.style.background = 'var(--danger)';
       if(secondsLeft <= 0){
@@ -1539,8 +1651,11 @@
     pendingTopic = topic;
     mcqAnswered = false;
     const meta = TOPICS[topic];
-    mcqCat.innerHTML = `${iconHTML(meta.icon,14)} ${meta.label}`;
-    mcqCat.style.color = meta.color;
+    mcqCatLabel.innerHTML = `${iconHTML(meta.icon,14)} ${meta.label}`;
+    mcqCatLabel.style.color = meta.color;
+    const diffMeta = { easy:['🟢','Easy','var(--good)'], medium:['🟡','Medium','#ffd54d'], hard:['🔴','Hard','var(--danger)'] }[q.difficulty] || null;
+    mcqDifficulty.textContent = diffMeta ? `${diffMeta[0]} ${diffMeta[1]}` : '';
+    mcqDifficulty.style.color = diffMeta ? diffMeta[2] : '';
     mcqPrompt.textContent = q.prompt;
     mcqOptions.innerHTML = '';
     q.options.forEach((opt,i)=>{
@@ -1558,6 +1673,7 @@
     // rather than just not counting down, so it's not showing a stale or
     // confusing full bar for a question that was never actually racing a clock.
     const timed = quizMode==='runner' || (quizMode==='practice' && practiceTimed);
+    mcqTimeLimit = mcqTimeLimitFor(q);
     mcqTimerWrap.style.display = timed ? 'block' : 'none';
     if(timed) startMcqTimer(); else clearMcqTimer();
   }
@@ -1565,12 +1681,14 @@
     pendingEntity = entity;
     quizMode = 'runner';
     screenState = 'mcq';
+    syncHudVisibility();
     stallTimer = 0;
     stallWarning.style.display = 'none';
     const q = nextQuestion(currentCancerId, entity.topic);
     if(!q){ // no questions available — treat as a no-op, resume
       entities = entities.filter(e=>e!==entity);
       screenState = 'running';
+      syncHudVisibility();
       lastT = performance.now();
       requestAnimationFrame(loop);
       return;
@@ -1666,21 +1784,27 @@
     // Brief, visible pause before handing control back -- without it,
     // whatever piled up on screen while the question was open resumes
     // moving the instant Continue is clicked (felt like the game had
-    // hung), which can also mean an unavoidable hit.
+    // hung), which can also mean an unavoidable hit. Counts down in whole
+    // seconds, same as the Group Race start countdown, instead of a
+    // decimal that never quite feels like it's counting down cleanly.
     screenState = 'resuming';
+    syncHudVisibility();
     const resumeAt = performance.now() + GAME_CONFIG.postAnswerPauseMs;
-    resumeIndicator.style.display = 'block';
+    resumeIndicator.style.display = 'flex';
+    let shownSecond = null;
     (function tickResume(){
       if(screenState !== 'resuming'){ resumeIndicator.style.display = 'none'; return; } // interrupted (paused/quit/etc)
       const remain = resumeAt - performance.now();
       if(remain <= 0){
         resumeIndicator.style.display = 'none';
         screenState = 'running';
+        syncHudVisibility();
         lastT = performance.now();
         requestAnimationFrame(loop);
         return;
       }
-      resumeIndicatorText.textContent = `▶ Resuming in ${(remain/1000).toFixed(1)}s`;
+      const second = Math.ceil(remain/1000);
+      if(second !== shownSecond){ shownSecond = second; resumeIndicatorNum.textContent = second; }
       requestAnimationFrame(tickResume);
     })();
   });
@@ -1758,6 +1882,9 @@
     for(const f of floaters){ f.y -= dt*40; f.life -= dt*0.9; }
     floaters = floaters.filter(f=>f.life>0);
   }
+  // Cached once and reused every frame -- creating a CanvasGradient is not
+  // free, and drawVessel used to build these two from scratch 60x/sec.
+  let vesselGradTop = null, vesselGradBottom = null;
   function drawVessel(){
     ctx.fillStyle = '#1c0710'; ctx.fillRect(0,0,W,H);
     ctx.strokeStyle = 'rgba(255,93,143,.10)'; ctx.lineWidth = 2;
@@ -1765,10 +1892,14 @@
     ctx.strokeStyle = 'rgba(255,93,143,.16)'; ctx.lineWidth = 3; ctx.setLineDash([26,18]);
     for(let i=0;i<LANES;i++){ ctx.beginPath(); ctx.moveTo(-bgOffset, laneY(i)); ctx.lineTo(W, laneY(i)); ctx.stroke(); }
     ctx.setLineDash([]);
-    const g1 = ctx.createLinearGradient(0,0,0,40); g1.addColorStop(0,'#3a0d1c'); g1.addColorStop(1,'rgba(58,13,28,0)');
-    ctx.fillStyle = g1; ctx.fillRect(0,0,W,40);
-    const g2 = ctx.createLinearGradient(0,H-40,0,H); g2.addColorStop(0,'rgba(58,13,28,0)'); g2.addColorStop(1,'#3a0d1c');
-    ctx.fillStyle = g2; ctx.fillRect(0,H-40,W,40);
+    if(!vesselGradTop){
+      vesselGradTop = ctx.createLinearGradient(0,0,0,40);
+      vesselGradTop.addColorStop(0,'#3a0d1c'); vesselGradTop.addColorStop(1,'rgba(58,13,28,0)');
+      vesselGradBottom = ctx.createLinearGradient(0,H-40,0,H);
+      vesselGradBottom.addColorStop(0,'rgba(58,13,28,0)'); vesselGradBottom.addColorStop(1,'#3a0d1c');
+    }
+    ctx.fillStyle = vesselGradTop; ctx.fillRect(0,0,W,40);
+    ctx.fillStyle = vesselGradBottom; ctx.fillRect(0,H-40,W,40);
   }
   function drawPlayer(){
     const y = player.y + Math.sin(player.wob)*2, x = PLAYER_X;
@@ -1789,22 +1920,28 @@
   function drawEntity(e){
     const y = laneY(e.lane);
     if(e.type==='glucose'){
-      ctx.save(); ctx.shadowColor = '#ffd23f'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffd23f';
-      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      // Cheap two-layer glow instead of ctx.shadowBlur -- shadowBlur is one
+      // of the more expensive Canvas2D ops, and with several of these on
+      // screen at once every frame it was a real source of the slowdown.
+      ctx.fillStyle = 'rgba(255,210,63,.35)';
+      ctx.beginPath(); ctx.arc(e.x, y, e.r+5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffd23f';
+      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill();
       return;
     }
     if(e.type==='bomb'){
-      ctx.save(); ctx.shadowColor = '#ff3b5c'; ctx.shadowBlur = 16; ctx.fillStyle = '#1a0508';
-      ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
-      ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('💣', e.x, y);
+      ctx.fillStyle = 'rgba(255,59,92,.3)';
+      ctx.beginPath(); ctx.arc(e.x, y, e.r+6, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1a0508'; ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(e.x, y, e.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      drawIconOnCanvas(GAME_CONFIG.bombIcon, e.x, y, 20);
       return;
     }
     const meta = TOPICS[e.topic]; const w=70,h=44;
-    ctx.save(); ctx.shadowColor = meta.color; ctx.shadowBlur = 10;
+    ctx.fillStyle = meta.color+'22';
+    roundRect(ctx, e.x-w/2-4, y-h/2-4, w+8, h+8, 12); ctx.fill();
     ctx.fillStyle = 'rgba(20,6,12,.85)'; ctx.strokeStyle = meta.color; ctx.lineWidth = 2;
-    roundRect(ctx, e.x-w/2, y-h/2, w, h, 10); ctx.fill(); ctx.stroke(); ctx.restore();
+    roundRect(ctx, e.x-w/2, y-h/2, w, h, 10); ctx.fill(); ctx.stroke();
     // Icon only, no topic-name label -- bigger and centred in the block so
     // it reads instantly while lane-hopping instead of needing to be read.
     drawIconOnCanvas(meta.icon, e.x, y, 32);
@@ -1835,7 +1972,7 @@
   }
 
   // ---------- study guide ----------
-  let guideActiveTheme = 'cancer';
+  let guideActiveTheme = RUNNABLE_THEMES[0];
   let guideActiveTopic = null;
   let guideMode = 'topic'; // 'topic' | 'course' — where the item grid's contents came from
   let guideActiveCourse = null;
@@ -2019,7 +2156,7 @@
       }
     };
   }
-  // Shared by "browse by course" and "click a #tag" — both are just a
+  // Shared by "browse by lecture" and "click a #tag" — both are just a
   // filtered view of every item, across every theme and topic, matching
   // some predicate. Keeping one implementation means the back-navigation,
   // search box, and card rendering all behave identically for both.
@@ -2064,7 +2201,7 @@
   }
   // Shows every item, across every theme and topic, that shares the given
   // relatedCourse value — reached by clicking a course name on an item page,
-  // or by picking a specific course from "Browse by course".
+  // or by picking a specific lecture from "Browse by lecture".
   function openCourseView(courseName, origin){
     guideActiveCourse = courseName;
     openFilteredItemView('course', `🎓 ${courseName}`, origin, item=>relatedCourseLines(item.relatedCourse).includes(courseName));
@@ -2075,7 +2212,7 @@
     openFilteredItemView('tag', `# ${tag}`, origin, item=>(item.hashtags||[]).includes(tag));
   }
   // Lists every distinct course tag across every theme — the direct "browse
-  // by course" entry point, not requiring a click-through from an item.
+  // by lecture" entry point, not requiring a click-through from an item.
   function openCourseList(){
     if(screenState==='running') pauseGame();
     guideMode = 'courseList';
@@ -2085,7 +2222,7 @@
     guideTabsWrap.style.display = 'none';
     guideCourseHeader.style.display = 'none';
     guideListHeader.style.display = 'block';
-    guideTitle.textContent = '🎓 Browse by course';
+    guideTitle.textContent = '🎓 Browse by lecture';
     guideBlurb.textContent = 'Grouped by unit code — pick a course/lecture to see everything filed under it.';
     const courseMap = {}; // courseName -> count
     Object.values(THEMES).forEach(theme=>{
@@ -2239,13 +2376,13 @@
   const mpRosterList = document.getElementById('mpRosterList');
   const mpEliminationToast = document.getElementById('mpEliminationToast');
   const resumeIndicator = document.getElementById('resumeIndicator');
-  const resumeIndicatorText = document.getElementById('resumeIndicatorText');
+  const resumeIndicatorNum = document.getElementById('resumeIndicatorNum');
   const stallWarning = document.getElementById('stallWarning');
 
   let mp = {
     active:false, roomCode:null, playerId:null, isHost:false,
     roster:{}, knownDone:new Set(), myName:'Player', finished:false,
-    roomListenerRef:null, countdownStarted:false, theme:'cancer', selectedTheme:'cancer',
+    roomListenerRef:null, countdownStarted:false, theme:RUNNABLE_THEMES[0], selectedTheme:RUNNABLE_THEMES[0],
   };
   function renderMpThemeGrid(){
     mpThemeGrid.innerHTML = RUNNABLE_THEMES.map(id=>{
@@ -2341,7 +2478,7 @@
       if(!room){ mpJoinError.textContent = "That room code doesn't exist."; mpJoinError.style.display='block'; return; }
       if(room.status!=='waiting'){ mpJoinError.textContent = 'That race has already started or finished.'; mpJoinError.style.display='block'; return; }
       mp.myName = name; mp.playerId = randId(); mp.isHost = false; mp.roomCode = code; mp.finished = false;
-      mp.theme = room.theme || 'cancer';
+      mp.theme = room.theme || RUNNABLE_THEMES[0];
       await set(ref(fbdb, `rooms/${code}/players/${mp.playerId}`), {
         name, glucose: GAME_CONFIG.startingGlucose, stageIndex:0, stageRoman:'I', correctCount:0, incorrectCount:0, bonusScore:0, done:false, finishedWin:false,
       });
@@ -2358,7 +2495,7 @@
 
   mpStartRaceBtn.addEventListener('click', ()=>{
     if(!mp.isHost || !mp.roomCode) return;
-    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}`), { status:'countdown', countdownAt: Date.now() + 3500 });
+    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}`), { status:'countdown', countdownAt: serverNow() + 3500 });
   });
 
   mpCancelBtn.addEventListener('click', async ()=>{
@@ -2447,10 +2584,13 @@
     });
   }
   // If every OTHER racer is done (finished, eliminated, or quit) and I'm
-  // still going, there's no one left to beat me -- declare the win outright
-  // rather than routing through the usual score comparison (a survivor
-  // should win regardless of what an already-eliminated opponent's frozen
-  // score happens to be) or making them keep playing solo.
+  // still going, there's no one left to keep racing against -- resolve the
+  // match right now instead of making the last player keep playing solo.
+  // This does NOT auto-win them: it just freezes their current stats and
+  // runs them through the exact same score comparison as any other
+  // resolution (mpCheckResolution) -- being the last one standing only
+  // guarantees a result gets decided sooner, not that they win it. Ranking
+  // is always by score, never by who happened to still be racing.
   function mpAutoWinIfLastStanding(roster){
     if(!mp.active || mp.finished || screenState==='over') return;
     const me = roster[mp.playerId];
@@ -2462,14 +2602,7 @@
     scenarioOverlay.classList.remove('active');
     resumeIndicator.style.display = 'none';
     clearMcqTimer();
-    screenState = 'over';
-    fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
-      done:true, doneReason:'last-standing', finishedWin:true,
-      glucose: Math.max(0,glucose), stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
-      correctCount: myCorrectCount, incorrectCount: myIncorrectCount, bonusScore: myBonusScore,
-    });
-    runTransaction(ref(fbdb, `rooms/${mp.roomCode}/winner`), current => current===null ? mp.playerId : current)
-      .then(()=> fbUpdate(ref(fbdb, `rooms/${mp.roomCode}`), { status:'finished' }));
+    mpMarkDone('last-standing');
   }
   function mpShowEliminationToast(text){
     mpEliminationToast.textContent = text;
@@ -2495,7 +2628,7 @@
     landingScreen.classList.remove('active');
     mpCountdownOverlay.classList.add('active');
     function tick(){
-      const remain = targetAt - Date.now();
+      const remain = targetAt - serverNow();
       if(remain <= 250){
         mpCountdownText.textContent = 'GO!';
         setTimeout(()=>{
@@ -2511,7 +2644,7 @@
   }
   function mpBeginRace(){
     mp.active = true;
-    currentCancerId = mp.theme || 'cancer';
+    currentCancerId = mp.theme || RUNNABLE_THEMES[0];
     resetRunState();
     stageProgress = {};
     Object.keys(STAGES[currentCancerId][0].requirements).forEach(t=>stageProgress[t]=0);
@@ -2534,6 +2667,7 @@
   function mpMarkDone(reason){
     if(!mp.roomCode || !mp.playerId) return;
     screenState = 'over';
+    syncHudVisibility();
     fbUpdate(ref(fbdb, `rooms/${mp.roomCode}/players/${mp.playerId}`), {
       done:true, doneReason:reason, finishedWin: reason==='finished',
       glucose: Math.max(0,glucose), stageIndex, stageRoman: STAGES[currentCancerId][stageIndex].roman,
@@ -2549,9 +2683,10 @@
       if(room) mpCheckResolution(room);
     });
   }
-  // Resolves the match once EVERY racer is done. Score = correct*50 -
-  // incorrect*35 + life*1 (see GAME_CONFIG) — highest score wins; if the
-  // top score is shared by more than one racer, it's a draw.
+  // Resolves the match once EVERY racer is done (including via
+  // mpAutoWinIfLastStanding above). Score = correct*50 - incorrect*35 +
+  // life*1 + stage*300 + streak bonuses (see GAME_CONFIG) -- highest score
+  // wins; if the top score is shared by more than one racer, it's a draw.
   function mpCheckResolution(room){
     if(!room || room.winner) return;
     const roster = room.players || {};
@@ -2567,6 +2702,7 @@
   }
   function showMpResult(room){
     screenState = 'over';
+    syncHudVisibility();
     mpSetOverButtons('final');
     const winner = room.winner;
     const ranked = mpRankedRoster(room.players || {});
@@ -2592,13 +2728,13 @@
   function mpTeardown(){
     if(mp.roomListenerRef){ off(mp.roomListenerRef); }
     mp = { active:false, roomCode:null, playerId:null, isHost:false, roster:{}, knownDone:new Set(),
-      myName:'Player', finished:false, roomListenerRef:null, countdownStarted:false, theme:'cancer', selectedTheme:'cancer' };
+      myName:'Player', finished:false, roomListenerRef:null, countdownStarted:false, theme:RUNNABLE_THEMES[0], selectedTheme:RUNNABLE_THEMES[0] };
     mpOpponentPanel.style.display = 'none';
     mpSetOverButtons('solo');
   }
 
   // ---------- init ----------
-  const GAME_VERSION = '2026-09-02-visible-resume-timer-leaderboard-corner'; // bump this string whenever you send friends a new copy of the file
+  const GAME_VERSION = '2026-09-03-leave-while-waiting'; // bump this string whenever you send friends a new copy of the file
   console.log('[Runner Game] version', GAME_VERSION);
   document.getElementById('versionTag').textContent = `version ${GAME_VERSION}`;
   manualGlucoseText.innerHTML = `You start with ${GAME_CONFIG.startingGlucose} life. Collect drifting pickups (+${GAME_CONFIG.glucosePickupValue} each) to top it up. Answering a question <b>wrong costs ${GAME_CONFIG.wrongAnswerPenalty}</b>. A rare 💣 bomb costs <b>${GAME_CONFIG.bombDamage}</b> instantly on contact — no question, just avoid it. If life drops below zero, the run ends. (Glucose for Cancer, ATP for Biochemistry — the name changes per theme.)`;
