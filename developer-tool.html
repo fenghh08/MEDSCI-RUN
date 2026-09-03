@@ -755,7 +755,7 @@ MEDS3002,L12,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;
      to game-data.js, this form picks it up automatically the next time it's
      opened; nothing here needs to be kept in sync by hand.
      ====================================================================== */
-  const TOOL_VERSION = '2026-09-03-course-based-restructure'; // bump this string whenever you send teammates a new copy of this file
+  const TOOL_VERSION = '2026-09-03-stale-template-fix'; // bump this string whenever you send teammates a new copy of this file
   console.log('[Developer Tool] version', TOOL_VERSION);
 
   // This file can't actually read medsci-runner.html's local content — a
@@ -2853,12 +2853,28 @@ MEDS3002,L12,pharmacology,Ibrutinib,&quot;Ibrutinib inhibits which enzyme?&quot;
 `,
   };
 
+  // A template saved to localStorage by an older copy of this tool (before
+  // the Course-based restructure) has the OLD 4-part shape --
+  // betweenCoursesTopics/betweenTopicsThemes instead of the current
+  // betweenCoursesThemes. Splicing that stale shape into a merge silently
+  // produces broken JS (an "undefined" spliced into the middle of the
+  // file), so a saved template only counts if it actually matches the
+  // shape this version of the tool expects.
+  function isValidTemplateShape(t){
+    return !!(t && typeof t.before==='string' && typeof t.betweenCoursesThemes==='string' && typeof t.afterThemes==='string');
+  }
   function loadTemplate(){
     try {
       const stored = localStorage.getItem('gameDataTemplate');
-      if(stored) return JSON.parse(stored);
+      if(stored){
+        const parsed = JSON.parse(stored);
+        if(isValidTemplateShape(parsed)) return parsed;
+        // Stale shape from an older tool version -- discard it rather than
+        // silently producing broken output on every merge from now on.
+        localStorage.removeItem('gameDataTemplate');
+      }
     } catch(e){ /* fall through */ }
-    if(window.__sessionTemplateOverride) return window.__sessionTemplateOverride;
+    if(isValidTemplateShape(window.__sessionTemplateOverride)) return window.__sessionTemplateOverride;
     return DEFAULT_TEMPLATE;
   }
   function extractTemplateParts(fullText){
