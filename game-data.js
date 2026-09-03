@@ -250,6 +250,8 @@
     stageWeight: 300,          // added per stage reached (stageIndex is 0-based, so Stage I contributes 0)
     streakBonusEvery: 3,       // award a bonus every Nth correct answer IN A ROW (resets to 0 on any wrong answer)
     streakBonusAmount: 10,     // life gained when a streak bonus triggers
+    streakBonusAppliesToLife: true, // set false to stop the streak bonus from also topping up life -- the life-award code below stays intact either way, this just gates it
+    streakBonusScoreAmount: 150, // flat score points awarded when a streak bonus triggers (on top of the usual correct/incorrect/life/stage weights)
   };
 
 /* ======================================================================
